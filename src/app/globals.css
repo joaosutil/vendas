@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --areia: #e0c392;
+  --creme: #f7f6f4;
+  --dourado: #ebd1a4;
+  --carvao: #3b393c;
+  --ink: #0d111c;
+  --cobre: #7d6a5a;
+  --background: var(--creme);
+  --foreground: var(--carvao);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-body);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(235, 209, 164, 0.35), transparent 35%),
+    radial-gradient(circle at 85% 20%, rgba(224, 195, 146, 0.25), transparent 35%),
+    linear-gradient(135deg, #f7f6f4 0%, #f3efea 45%, #f7f6f4 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-title), sans-serif;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  body::before {
+    content: "Impressao desativada nesta area.";
+    visibility: visible !important;
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #0d111c;
+    background: #f7f6f4;
+  }
+}
+
+.animated-mesh {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(235, 209, 164, 0.65), transparent 33%),
+    radial-gradient(circle at 80% 30%, rgba(125, 106, 90, 0.28), transparent 30%),
+    radial-gradient(circle at 45% 80%, rgba(224, 195, 146, 0.45), transparent 34%),
+    linear-gradient(140deg, #f8f5f1 0%, #f3ece3 45%, #f8f5f1 100%);
+  background-size: 130% 130%;
+  animation: meshShift 12s ease-in-out infinite alternate;
+}
+
+.glass-card {
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.48));
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+}
+
+.shine-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.shine-overlay::after {
+  content: "";
+  position: absolute;
+  inset: -200% -40%;
+  transform: rotate(22deg);
+  background: linear-gradient(to right, transparent 45%, rgba(255, 255, 255, 0.4) 50%, transparent 55%);
+  animation: shinePass 8s linear infinite;
+}
+
+.soft-float {
+  animation: softFloat 6.5s ease-in-out infinite;
+}
+
+.soft-float-delayed {
+  animation: softFloat 8s ease-in-out infinite 1.1s;
+}
+
+.spot-glow {
+  box-shadow: 0 0 60px rgba(13, 17, 28, 0.25);
+}
+
+@keyframes meshShift {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 100% 100%;
+  }
+}
+
+@keyframes shinePass {
+  0% {
+    transform: translateX(-75%) rotate(22deg);
+  }
+  100% {
+    transform: translateX(80%) rotate(22deg);
+  }
+}
+
+@keyframes softFloat {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
 }

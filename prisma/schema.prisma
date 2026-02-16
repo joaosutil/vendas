@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PurchaseStatus {
+  ACTIVE
+  REFUNDED
+  CHARGEBACK
+}
+
+model User {
+  id               String               @id @default(cuid())
+  name             String?
+  email            String               @unique
+  passwordHash     String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  purchases        Purchase[]
+  progress         Progress[]
+  passwordSetups   PasswordSetupToken[]
+  ebookStates      EbookReaderState[]
+  ebookHighlights  EbookHighlight[]
+}
+
+model Product {
+  id             String     @id @default(cuid())
+  slug           String     @unique
+  title          String
+  caktoProductId String?    @unique
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now())
+  offers         Offer[]
+  purchases      Purchase[]
+  modules        Module[]
+  ebookStates    EbookReaderState[]
+  ebookHighlights EbookHighlight[]
+}
+
+model Offer {
+  id           String   @id @default(cuid())
+  caktoOfferId String   @unique
+  productId    String
+  checkoutUrl  String
+  createdAt    DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model Purchase {
+  id           String         @id @default(cuid())
+  caktoOrderId String         @unique
+  userId       String
+  productId    String
+  status       PurchaseStatus @default(ACTIVE)
+  paidAt       DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product      Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
+}
+
+model Module {
+  id         String   @id @default(cuid())
+  productId  String
+  title      String
+  orderIndex Int
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  lessons    Lesson[]
+}
+
+model Lesson {
+  id         String   @id @default(cuid())
+  moduleId   String
+  title      String
+  contentUrl String?
+  orderIndex Int
+  module     Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress   Progress[]
+}
+
+model Progress {
+  userId      String
+  lessonId    String
+  completedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson      Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([userId, lessonId])
+}
+
+model WebhookEvent {
+  id           String   @id @default(cuid())
+  caktoEventId String   @unique
+  caktoOrderId String?
+  eventType    String
+  receivedAt   DateTime @default(now())
+}
+
+model PasswordSetupToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model EbookReaderState {
+  id               String   @id @default(cuid())
+  userId           String
+  productId        String
+  activeChapter    Int      @default(0)
+  scrollProgress   Int      @default(0)
+  fontScale        Float    @default(1)
+  readChapters     Int[]
+  completedModules Int[]
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+model EbookHighlight {
+  id             String   @id
+  userId         String
+  productId      String
+  chapterIndex   Int
+  paragraphIndex Int
+  startOffset    Int
+  endOffset      Int
+  color          String
+  selectedText   String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId, productId])
+}

@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "EbookReaderState" ADD COLUMN     "fontScale" DOUBLE PRECISION NOT NULL DEFAULT 1;
