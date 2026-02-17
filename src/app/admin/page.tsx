@@ -58,8 +58,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   let openTickets: Awaited<ReturnType<typeof prisma.supportTicket.findMany>> = [];
   let recentPurchases: Awaited<ReturnType<typeof prisma.purchase.findMany>> = [];
   let periodPurchases: Awaited<ReturnType<typeof prisma.purchase.findMany>> = [];
-  let users: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
-  let products: Awaited<ReturnType<typeof prisma.product.findMany>> = [];
+  let users: Array<{
+    id: string;
+    name: string | null;
+    email: string;
+    role: "USER" | "ADMIN";
+    active: boolean;
+    createdAt: Date;
+    _count: { purchases: number };
+  }> = [];
+  let products: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    type: "EBOOK" | "VIDEO_COURSE" | "OTHER";
+    active: boolean;
+    ebookAsset: { id: string } | null;
+    modules: Array<{ id: string; lessons: Array<{ id: string }> }>;
+  }> = [];
 
   try {
     [
