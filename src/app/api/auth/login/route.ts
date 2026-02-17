@@ -4,22 +4,31 @@ import { setSessionCookie } from "@/lib/auth";
 import { verifyPassword } from "@/lib/password";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 
+export async function GET(request: Request) {
+  const appBaseUrl = getAppBaseUrl(request);
+  return NextResponse.redirect(new URL("/login", appBaseUrl), 303);
+}
+
 export async function POST(request: Request) {
   const appBaseUrl = getAppBaseUrl(request);
-  const formData = await request.formData();
-  const email = String(formData.get("email") || "").trim().toLowerCase();
-  const password = String(formData.get("password") || "");
+  try {
+    const formData = await request.formData();
+    const email = String(formData.get("email") || "").trim().toLowerCase();
+    const password = String(formData.get("password") || "");
 
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user?.passwordHash) {
-    return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user?.passwordHash) {
+      return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
+    }
+
+    const valid = await verifyPassword(password, user.passwordHash);
+    if (!valid) {
+      return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
+    }
+
+    await setSessionCookie({ userId: user.id, email: user.email });
+    return NextResponse.redirect(new URL("/app", appBaseUrl), 303);
+  } catch {
+    return NextResponse.redirect(new URL("/login?error=servidor", appBaseUrl), 303);
   }
-
-  const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) {
-    return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
-  }
-
-  await setSessionCookie({ userId: user.id, email: user.email });
-  return NextResponse.redirect(new URL("/app", appBaseUrl), 303);
 }

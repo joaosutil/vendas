@@ -7,6 +7,7 @@ type LoginPageProps = {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = (await searchParams) ?? {};
   const hasCredentialError = params.error === "credenciais";
+  const hasServerError = params.error === "servidor";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md items-center px-4 py-16">
@@ -16,6 +17,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {hasCredentialError ? (
           <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
             E-mail ou senha inválidos.
+          </p>
+        ) : null}
+        {hasServerError ? (
+          <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            Erro interno ao processar login. Tente novamente em instantes.
           </p>
         ) : null}
         <form action="/api/auth/login" method="post" className="mt-5 space-y-3">
