@@ -1,9 +1,14 @@
-cd ~/vendas && source .env
 curl -i -X POST https://marketingdigi.shop/api/webhooks/cakto \
   -H "Content-Type: application/json" \
   --data "{
     \"event\":\"purchase_approved\",
     \"secret\":\"$CAKTO_WEBHOOK_SECRET\",
-    \"id\":\"evt_mail_test_1\",
-    \"data\":{\"id\":\"order_mail_test_1\",\"status\":\"paid\",\"customer\":{\"email\":\"jvsuti2005@gmail.com\",\"name\":\"Teste\"},\"product\":{\"id\":\"ansiedade-prod-1\"},\"offer\":{\"id\":\"offer-1\"}}
+    \"id\":\"evt_mail_test_3\",
+    \"data\":{
+      \"id\":\"order_mail_test_3\",
+      \"status\":\"paid\",
+      \"customer\":{\"email\":\"jvsuti2005@gmail.com\",\"name\":\"Teste\"},
+      \"product\":{\"id\":\"ansiedade-prod-1\"},
+      \"offer\":{\"id\":\"offer-1\"}
+    }
   }"

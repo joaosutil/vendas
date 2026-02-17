@@ -118,11 +118,21 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
 
     const rawToken = await createPasswordSetupToken(user.id);
     const setupUrl = `${getBaseUrl()}/definir-senha?token=${rawToken}`;
-    await sendSetupPasswordEmail({
-      email: user.email,
-      name: user.name,
-      setupUrl,
-    });
+    try {
+      await sendSetupPasswordEmail({
+        email: user.email,
+        name: user.name,
+        setupUrl,
+      });
+    } catch (error) {
+      console.error("[WEBHOOK:EMAIL_SEND_FAILED]", {
+        userId: user.id,
+        email: user.email,
+        orderId,
+        eventId,
+        error,
+      });
+    }
 
     return { ok: true, duplicate: false as const, setupUrl };
   }
