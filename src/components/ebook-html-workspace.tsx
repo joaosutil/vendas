@@ -453,7 +453,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
               <article className="relative overflow-hidden rounded-xl border border-[var(--dourado)]/50 bg-white px-4 py-5 md:px-8 md:py-7 shadow-sm">
                 <div className="absolute -top-8 -right-8 h-20 w-20 rounded-full bg-[var(--dourado)]/30 blur-2xl" />
                 <Image
-                  src="/ebook-cover-art.svg"
+                  src="/ebook-cover-art.png"
                   alt="Capa estilizada do ebook"
                   width={800}
                   height={520}

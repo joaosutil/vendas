@@ -2,6 +2,7 @@ import { Resend } from "resend";
 
 const FROM = process.env.EMAIL_FROM ?? "Marketing Digital Top <no-reply@seudominio.com>";
 const APP_BASE_URL = process.env.APP_BASE_URL ?? "https://seudominio.com";
+const EMAIL_COVER_IMAGE_URL = process.env.EMAIL_COVER_IMAGE_URL?.trim();
 
 type SetupPasswordInput = {
   email: string;
@@ -13,7 +14,8 @@ export async function sendSetupPasswordEmail(input: SetupPasswordInput) {
   const apiKey = process.env.RESEND_API_KEY;
   const subject = "Seu acesso está liberado ✅";
   const greetingName = input.name?.trim() || "tudo bem";
-  const coverImageUrl = `${APP_BASE_URL.replace(/\/+$/, "")}/ebook-cover-art.svg`;
+  const coverImageUrl =
+    EMAIL_COVER_IMAGE_URL || `${APP_BASE_URL.replace(/\/+$/, "")}/ebook-cover-art.png`;
 
   const html = `
     <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
