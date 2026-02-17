@@ -38,6 +38,7 @@ model User {
   email            String               @unique
   passwordHash     String?
   role             UserRole             @default(USER)
+  active           Boolean              @default(true)
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
   purchases        Purchase[]
@@ -70,6 +71,7 @@ model Offer {
   checkoutUrl  String
   createdAt    DateTime @default(now())
   product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  purchases    Purchase[]
 }
 
 model Purchase {
@@ -77,15 +79,18 @@ model Purchase {
   caktoOrderId String         @unique
   userId       String
   productId    String
+  offerId      String?
   status       PurchaseStatus @default(ACTIVE)
   paidAt       DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   product      Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  offer        Offer?         @relation(fields: [offerId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([productId])
+  @@index([offerId])
 }
 
 model Module {

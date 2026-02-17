@@ -12,6 +12,38 @@ const createUserSchema = z.object({
   role: z.enum(["USER", "ADMIN"]).default("USER"),
 });
 
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false }, { status: 403 });
+
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      active: true,
+      createdAt: true,
+      _count: { select: { purchases: true } },
+    },
+    take: 200,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    users: users.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      email: entry.email,
+      role: entry.role,
+      active: entry.active,
+      createdAt: entry.createdAt,
+      purchasesCount: entry._count.purchases,
+    })),
+  });
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false }, { status: 403 });
@@ -29,8 +61,9 @@ export async function POST(request: Request) {
       email: payload.email.toLowerCase(),
       passwordHash,
       role: payload.role,
+      active: true,
     },
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, active: true, createdAt: true },
   });
 
   return NextResponse.json({ ok: true, user: created });

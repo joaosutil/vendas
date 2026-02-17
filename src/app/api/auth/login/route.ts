@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const password = String(formData.get("password") || "");
 
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user?.passwordHash) {
+    if (!user?.passwordHash || !user.active) {
       return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
     }
 

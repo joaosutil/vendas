@@ -64,6 +64,23 @@ async function ensureProduct(productId: string | null, offerId: string | null) {
   return created;
 }
 
+async function resolveOfferId(productDbId: string, caktoOfferId: string | null) {
+  if (!caktoOfferId) return null;
+  const offer = await prisma.offer.upsert({
+    where: { caktoOfferId },
+    create: {
+      caktoOfferId,
+      productId: productDbId,
+      checkoutUrl: process.env.NEXT_PUBLIC_CAKTO_CHECKOUT_URL ?? "https://pay.cakto.com.br/SEU_CODIGO",
+    },
+    update: {
+      productId: productDbId,
+    },
+    select: { id: true },
+  });
+  return offer.id;
+}
+
 export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
   const eventType = payload.event;
   const orderId = normalizeId(payload.data.id);
@@ -90,6 +107,7 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
     const email = payload.data.customer.email.toLowerCase().trim();
     const name = payload.data.customer.name?.trim();
     const product = await ensureProduct(productId, offerId);
+    const offerDbId = await resolveOfferId(product.id, offerId);
 
     const user = await prisma.user.upsert({
       where: { email },
@@ -104,6 +122,7 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
           caktoOrderId: orderId,
           userId: user.id,
           productId: product.id,
+          offerId: offerDbId,
           status: "ACTIVE",
           paidAt: new Date(),
         },
@@ -112,6 +131,7 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
           paidAt: new Date(),
           userId: user.id,
           productId: product.id,
+          offerId: offerDbId,
         },
       });
     }

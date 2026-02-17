@@ -3,11 +3,11 @@ curl -i -X POST https://marketingdigi.shop/api/webhooks/cakto \
   --data "{
     \"event\":\"purchase_approved\",
     \"secret\":\"$CAKTO_WEBHOOK_SECRET\",
-    \"id\":\"evt_mail_test_6\",
+    \"id\":\"evt_mail_test_7\",
     \"data\":{
-      \"id\":\"order_mail_test_6\",
+      \"id\":\"order_mail_test_7\",
       \"status\":\"paid\",
-      \"customer\":{\"email\":\"douglasraymundo@gmail.com\",\"name\":\"Douglas\"},
+      \"customer\":{\"email\":\"jvsuti2005@gmail.com\",\"name\":\"Douglas\"},
       \"product\":{\"id\":\"ansiedade-prod-1\"},
       \"offer\":{\"id\":\"offer-1\"}
     }

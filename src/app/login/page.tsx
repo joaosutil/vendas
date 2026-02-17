@@ -46,6 +46,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Entrar
           </button>
         </form>
+        <a href="/esqueci-senha" className="mt-3 inline-block text-sm underline">
+          Esqueci minha senha
+        </a>
         <p className="mt-3 text-xs text-[var(--carvao)]/70">
           Primeira vez? Você recebe um link para definir senha após confirmação do pagamento.
         </p>
