@@ -15,6 +15,14 @@ const bodyFont = Inter({
 export const metadata: Metadata = {
   title: "Marketing Digital Top",
   description: "Como Derrotar a Ansiedade na prática, no dia a dia.",
+  icons: {
+    icon: [
+      { url: "/brand-icon.png", type: "image/png", sizes: "32x32" },
+      { url: "/brand-icon.png", type: "image/png", sizes: "192x192" },
+    ],
+    shortcut: "/brand-icon.png",
+    apple: "/brand-icon.png",
+  },
 };
 
 export default function RootLayout({
