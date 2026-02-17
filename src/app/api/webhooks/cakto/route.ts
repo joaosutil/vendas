@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { parseCaktoPayload } from "@/lib/cakto";
 import { processCaktoWebhook } from "@/lib/cakto-webhook-service";
 
@@ -8,7 +9,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Webhook secret not configured." }, { status: 500 });
   }
 
-  const payload = parseCaktoPayload(await request.json());
+  let payload;
+  try {
+    payload = parseCaktoPayload(await request.json());
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ ok: false, error: "Invalid webhook payload" }, { status: 400 });
+    }
+    return NextResponse.json({ ok: false, error: "Invalid request body" }, { status: 400 });
+  }
   const expected = secret.trim();
   const received = payload.secret.trim();
 
@@ -33,6 +42,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  const result = await processCaktoWebhook(payload);
-  return NextResponse.json(result);
+  try {
+    const result = await processCaktoWebhook(payload);
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("[WEBHOOK:UNHANDLED_ERROR]", error);
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
 }
