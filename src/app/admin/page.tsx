@@ -58,17 +58,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     lastMessageAt: Date;
     user: { email: string };
   }> = [];
-  let recentPurchases: Array<{
-    id: string;
-    createdAt: Date;
-    status: PurchaseStatus;
-    paymentMethod: string | null;
-    grossAmountCents: number | null;
-    feeAmountCents: number | null;
-    netAmountCents: number | null;
-    user: { email: string };
-    product: { title: string };
-  }> = [];
   let periodPurchases: Array<{
     id: string;
     createdAt: Date;
@@ -107,7 +96,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       activePurchasesCount,
       refundedCount,
       openTickets,
-      recentPurchases,
       periodPurchases,
       users,
       products,
@@ -122,14 +110,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         orderBy: { lastMessageAt: "desc" },
         take: 20,
         include: { user: { select: { email: true } } },
-      }),
-      prisma.purchase.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 12,
-        include: {
-          user: { select: { email: true } },
-          product: { select: { title: true } },
-        },
       }),
       prisma.purchase.findMany({
         where: { createdAt: { gte: from, lte: to } },
@@ -290,6 +270,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     }))
     .sort((a, b) => b.netCents - a.netCents);
 
+  const topPayment = paymentMethodRows[0];
+  const topProduct = topProducts[0];
+
   const avgGrossTicket = salesCount ? Math.round(grossCents / salesCount) : 0;
   const avgNetTicket = keptSalesCount ? Math.round(netCents / keptSalesCount) : 0;
   const refundRate = salesCount ? Math.round((refundedInPeriod / salesCount) * 100) : 0;
@@ -302,17 +285,23 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const growthRate = firstHalfSales ? Math.round(((secondHalfSales - firstHalfSales) / firstHalfSales) * 100) : 0;
 
   const aiInsights: string[] = [
-    `Margem líquida atual em ${marginRate}%. ${marginRate < 70 ? "Considere renegociar taxa média ou elevar ticket para proteger lucro." : "Margem saudável para escalar tráfego."}`,
-    `Taxa de retenção pós-venda em ${retentionRate}% (refund + chargeback em ${refundRate}%). ${refundRate > 12 ? "Reforce onboarding e expectativa na página de vendas." : "Retenção consistente no período."}`,
+    `Margem líquida: ${marginRate}%. ${marginRate < 70 ? "Alerta de eficiência: reduzir CAC e taxa média deve ser prioridade." : "Eficiência saudável para escalar tráfego com segurança."}`,
+    `Retenção pós-venda: ${retentionRate}% (refund+chargeback: ${refundRate}%). ${refundRate > 12 ? "Risco de churn alto: ajuste promessa da oferta e onboarding das primeiras 24h." : "Risco de churn controlado no período."}`,
     `Ticket médio bruto ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(avgGrossTicket / 100)} e líquido ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(avgNetTicket / 100)}.`,
     `Tendência de vendas no período: ${growthRate >= 0 ? "+" : ""}${growthRate}% entre primeira e segunda metade.`,
+    topPayment
+      ? `Método dominante: ${topPayment.method} (${topPayment.share}% das vendas), com líquido médio de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(topPayment.avgNetCents / 100)}.`
+      : "Sem volume suficiente para determinar método dominante.",
+    topProduct
+      ? `Produto líder por volume: ${topProduct.title} (${topProduct.count} vendas no período).`
+      : "Sem produto líder no período.",
   ];
 
   const creativeIdeas = [
-    "Criativo 1: vídeo curto de 25s com dor real + prova visual do conteúdo + CTA direto para checkout.",
-    "Criativo 2: carrossel ‘antes x depois de 7 dias’ com microvitórias e chamada para ação.",
-    "Criativo 3: anúncio UGC com gancho ‘o que eu faria se tivesse ansiedade e só R$19,90 hoje’.",
-    "Distribuição: 60% Meta Ads (conversão), 25% remarketing, 15% creators/afiliados.",
+    `Criativo 1 (TOF): vídeo de 20-30s com gancho de dor + prova concreta + CTA para ${topProduct?.title ?? "produto principal"}.`,
+    `Criativo 2 (MOF): carrossel de objeções (preço, tempo, eficácia) com foco no método ${topPayment?.method ?? "de maior conversão"}.`,
+    "Criativo 3 (BOF): UGC com demonstração de uso real + call direto para checkout com urgência de sessão.",
+    `Distribuição recomendada: ${growthRate < 0 ? "40% aquisição / 40% remarketing / 20% creators" : "60% aquisição / 25% remarketing / 15% creators"} com revisão semanal de ROI.`,
   ];
 
   const fromValue = from.toISOString().slice(0, 10);
@@ -349,30 +338,6 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       topProducts={topProducts}
       paymentMethodRows={paymentMethodRows}
       funnelRows={funnelRows}
-      recentPurchases={recentPurchases.map((purchase) => ({
-        id: purchase.id,
-        createdAt: purchase.createdAt.toISOString(),
-        email: purchase.user.email,
-        productTitle: purchase.product.title,
-        status: purchase.status,
-        paymentMethod: normalizeMethod(purchase.paymentMethod),
-        grossAmountCents: purchase.grossAmountCents ?? unitPriceCents,
-        feeAmountCents:
-          purchase.feeAmountCents ??
-          Math.max(
-            (purchase.grossAmountCents ?? unitPriceCents) -
-              (purchase.netAmountCents ??
-                fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
-                fallbackNetByMethod.DESCONHECIDO),
-            0,
-          ),
-        netAmountCents:
-          purchase.status === "ACTIVE"
-            ? (purchase.netAmountCents ??
-              fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
-              fallbackNetByMethod.DESCONHECIDO)
-            : 0,
-      }))}
       aiInsights={aiInsights}
       creativeIdeas={creativeIdeas}
       openTickets={openTickets.map((ticket) => ({

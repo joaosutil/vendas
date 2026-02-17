@@ -2,6 +2,22 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { AdminConsole } from "@/components/admin/admin-console";
 
 function toCurrency(valueCents: number) {
@@ -52,18 +68,7 @@ type EnterpriseAdminHubProps = {
     total: number;
     active: number;
     refunded: number;
-    chargeback: number;
-  }>;
-  recentPurchases: Array<{
-    id: string;
-    createdAt: string;
-    email: string;
-    productTitle: string;
-    status: string;
-    paymentMethod: string;
-    grossAmountCents: number;
-    feeAmountCents: number;
-    netAmountCents: number;
+      chargeback: number;
   }>;
   aiInsights: string[];
   creativeIdeas: string[];
@@ -95,6 +100,16 @@ type EnterpriseAdminHubProps = {
   }>;
 };
 
+const chartPalette = {
+  gross: "#2563eb",
+  net: "#059669",
+  fees: "#f59e0b",
+  refunds: "#ef4444",
+  sales: "#7c3aed",
+  line2: "#06b6d4",
+  bgStroke: "#94a3b8",
+};
+
 export function EnterpriseAdminHub({
   fromValue,
   toValue,
@@ -105,7 +120,6 @@ export function EnterpriseAdminHub({
   topProducts,
   paymentMethodRows,
   funnelRows,
-  recentPurchases,
   aiInsights,
   creativeIdeas,
   openTickets,
@@ -113,26 +127,50 @@ export function EnterpriseAdminHub({
   products,
 }: EnterpriseAdminHubProps) {
   const [tab, setTab] = useState<"finance" | "growth" | "operations">("finance");
-  const [dailyMode, setDailyMode] = useState<"sales" | "gross" | "net">("sales");
 
-  const maxDailyValue = useMemo(() => {
-    if (!dailyFinance.length) return 1;
-    return Math.max(
-      ...dailyFinance.map((entry) => {
-        if (dailyMode === "sales") return entry.sales;
-        if (dailyMode === "gross") return entry.grossCents;
-        return entry.netCents;
-      }),
-      1,
-    );
-  }, [dailyFinance, dailyMode]);
+  const dailySeries = useMemo(
+    () =>
+      dailyFinance.map((entry) => ({
+        date: entry.date.slice(5),
+        sales: entry.sales,
+        gross: Number((entry.grossCents / 100).toFixed(2)),
+        net: Number((entry.netCents / 100).toFixed(2)),
+        refunds: entry.refunds,
+      })),
+    [dailyFinance],
+  );
+
+  const paymentPieData = useMemo(
+    () =>
+      paymentMethodRows.map((row) => ({
+        name: row.method,
+        value: row.total,
+      })),
+    [paymentMethodRows],
+  );
+
+  const statusPieData = useMemo(
+    () => statusDistribution.map((entry) => ({ name: entry.status, value: entry.count })),
+    [statusDistribution],
+  );
+
+  const funnelChartData = useMemo(
+    () =>
+      funnelRows.slice(0, 8).map((row) => ({
+        name: `${row.productTitle.slice(0, 14)}-${row.offerCode.slice(0, 8)}`,
+        aprovadas: row.total,
+        ativas: row.active,
+      })),
+    [funnelRows],
+  );
 
   return (
     <section className="space-y-4">
       <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5">
         <h1 className="text-3xl font-bold">Admin Enterprise Hub</h1>
-        <p className="mt-1 text-sm text-[var(--carvao)]/80">
-          Gestão financeira, growth analytics e operações em um único painel.
+        <p className="mt-1 text-sm text-[var(--carvao)]/80">Gestão financeira avançada, growth e operações.</p>
+        <p className="mt-1 text-xs text-[var(--carvao)]/70">
+          Insights de IA: engine analítica orientada por dados (heurística + regras), não modelo generativo LLM.
         </p>
         <form method="get" className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
           <input type="date" name="from" defaultValue={fromValue} className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
@@ -156,181 +194,179 @@ export function EnterpriseAdminHub({
 
       {tab === "finance" ? (
         <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Bruto</p><p className="mt-1 text-2xl font-black">{toCurrency(stats.grossCents)}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Líquido</p><p className="mt-1 text-2xl font-black">{toCurrency(stats.netCents)}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Lucro</p><p className="mt-1 text-2xl font-black">{toCurrency(stats.profitCents)}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Taxas / Estornos</p><p className="mt-1 text-2xl font-black">{toCurrency(stats.feeCents)} / {toCurrency(stats.refundsCents)}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Margem / Retenção</p><p className="mt-1 text-2xl font-black">{stats.marginRate}% / {stats.retentionRate}%</p></div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <MetricCard label="Bruto" value={toCurrency(stats.grossCents)} />
+            <MetricCard label="Líquido" value={toCurrency(stats.netCents)} />
+            <MetricCard label="Lucro" value={toCurrency(stats.profitCents)} />
+            <MetricCard label="Taxas" value={toCurrency(stats.feeCents)} />
+            <MetricCard label="Estornos" value={toCurrency(stats.refundsCents)} />
+            <MetricCard label="Margem" value={`${stats.marginRate}%`} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-3">
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 xl:col-span-2">
-              <div className="flex items-center justify-between">
-                <h2 className="font-semibold">Série temporal</h2>
-                <div className="flex gap-1 text-xs">
-                  <button type="button" onClick={() => setDailyMode("sales")} className={`rounded px-2 py-1 ${dailyMode === "sales" ? "bg-[var(--ink)] text-white" : "border bg-white"}`}>Vendas</button>
-                  <button type="button" onClick={() => setDailyMode("gross")} className={`rounded px-2 py-1 ${dailyMode === "gross" ? "bg-[var(--ink)] text-white" : "border bg-white"}`}>Bruto</button>
-                  <button type="button" onClick={() => setDailyMode("net")} className={`rounded px-2 py-1 ${dailyMode === "net" ? "bg-[var(--ink)] text-white" : "border bg-white"}`}>Líquido</button>
-                </div>
-              </div>
-              <div className="mt-4 grid gap-2">
-                {dailyFinance.length === 0 ? (
-                  <p className="text-sm text-[var(--carvao)]/70">Sem dados no período.</p>
-                ) : (
-                  dailyFinance.map((entry) => {
-                    const rawValue = dailyMode === "sales" ? entry.sales : dailyMode === "gross" ? entry.grossCents : entry.netCents;
-                    const width = Math.max((rawValue / maxDailyValue) * 100, 3);
-                    const label = dailyMode === "sales" ? `${entry.sales}` : toCurrency(rawValue);
-                    return (
-                      <div key={entry.date} className="grid grid-cols-[7rem_1fr_7rem] items-center gap-2 text-xs">
-                        <span className="text-[var(--carvao)]/75">{entry.date}</span>
-                        <div className="h-3 rounded-full bg-[var(--dourado)]/30">
-                          <div className="h-3 rounded-full bg-[var(--ink)]" style={{ width: `${width}%` }} />
-                        </div>
-                        <span className="text-right font-semibold">{label}</span>
-                      </div>
-                    );
-                  })
-                )}
+              <h2 className="font-semibold">Bruto x Líquido (linha temporal)</h2>
+              <div className="mt-3 h-[340px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={dailySeries}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.25} />
+                    <XAxis dataKey="date" stroke={chartPalette.bgStroke} />
+                    <YAxis stroke={chartPalette.bgStroke} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="gross" name="Bruto (R$)" stroke={chartPalette.gross} strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="net" name="Líquido (R$)" stroke={chartPalette.net} strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </section>
 
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Mix de pagamentos</h2>
-              <div className="mt-3 space-y-2 text-sm">
-                {paymentMethodRows.map((row) => (
-                  <div key={row.method} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
-                    <div className="flex items-center justify-between"><span>{row.method}</span><strong>{row.share}%</strong></div>
-                    <p className="mt-1 text-xs text-[var(--carvao)]/75">Líquido médio: {toCurrency(row.avgNetCents)}</p>
-                  </div>
-                ))}
+              <h2 className="font-semibold">Mix de pagamento</h2>
+              <div className="mt-3 h-[340px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={paymentPieData} dataKey="value" nameKey="name" outerRadius={105} fill={chartPalette.line2} label />
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </section>
           </div>
 
-          <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-            <h2 className="font-semibold">Compras recentes</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-[var(--carvao)]/75">
-                    <th className="px-2 py-1">Data</th><th className="px-2 py-1">Email</th><th className="px-2 py-1">Produto</th><th className="px-2 py-1">Método</th><th className="px-2 py-1">Bruto</th><th className="px-2 py-1">Taxa</th><th className="px-2 py-1">Líquido</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentPurchases.map((purchase) => (
-                    <tr key={purchase.id} className="border-t border-[var(--dourado)]/25">
-                      <td className="px-2 py-1">{new Date(purchase.createdAt).toLocaleString("pt-BR")}</td>
-                      <td className="px-2 py-1">{purchase.email}</td>
-                      <td className="px-2 py-1">{purchase.productTitle}</td>
-                      <td className="px-2 py-1">{purchase.paymentMethod}</td>
-                      <td className="px-2 py-1">{toCurrency(purchase.grossAmountCents)}</td>
-                      <td className="px-2 py-1">{toCurrency(purchase.feeAmountCents)}</td>
-                      <td className="px-2 py-1">{toCurrency(purchase.netAmountCents)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <div className="grid gap-4 xl:grid-cols-2">
+            <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
+              <h2 className="font-semibold">Volume diário</h2>
+              <div className="mt-3 h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={dailySeries}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.2} />
+                    <XAxis dataKey="date" stroke={chartPalette.bgStroke} />
+                    <YAxis stroke={chartPalette.bgStroke} />
+                    <Tooltip />
+                    <Legend />
+                    <Area type="monotone" dataKey="sales" name="Vendas" stroke={chartPalette.sales} fill={chartPalette.sales} fillOpacity={0.25} />
+                    <Area type="monotone" dataKey="refunds" name="Estornos" stroke={chartPalette.refunds} fill={chartPalette.refunds} fillOpacity={0.2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
+              <h2 className="font-semibold">Líquido médio por método</h2>
+              <div className="mt-3 h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={paymentMethodRows.map((row) => ({ method: row.method, avg: Number((row.avgNetCents / 100).toFixed(2)) }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.2} />
+                    <XAxis dataKey="method" stroke={chartPalette.bgStroke} />
+                    <YAxis stroke={chartPalette.bgStroke} />
+                    <Tooltip />
+                    <Bar dataKey="avg" name="Líquido Médio (R$)" fill={chartPalette.net} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
           </div>
         </div>
       ) : null}
 
       {tab === "growth" ? (
         <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Vendas / Ativas</p><p className="mt-1 text-2xl font-black">{stats.salesCount}/{stats.keptSalesCount}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Ticket bruto / líquido</p><p className="mt-1 text-2xl font-black">{toCurrency(stats.avgGrossTicket)} / {toCurrency(stats.avgNetTicket)}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Refund rate</p><p className="mt-1 text-2xl font-black">{stats.refundRate}%</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Tendência</p><p className="mt-1 text-2xl font-black">{stats.growthRate >= 0 ? "+" : ""}{stats.growthRate}%</p></div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <MetricCard label="Vendas / Ativas" value={`${stats.salesCount}/${stats.keptSalesCount}`} />
+            <MetricCard label="Ticket Bruto" value={toCurrency(stats.avgGrossTicket)} />
+            <MetricCard label="Ticket Líquido" value={toCurrency(stats.avgNetTicket)} />
+            <MetricCard label="Refund rate" value={`${stats.refundRate}%`} />
+            <MetricCard label="Tendência" value={`${stats.growthRate >= 0 ? "+" : ""}${stats.growthRate}%`} />
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Funil por produto/oferta</h2>
-              <div className="mt-3 overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[var(--carvao)]/75">
-                      <th className="px-2 py-1">Produto</th><th className="px-2 py-1">Oferta</th><th className="px-2 py-1">Aprovadas</th><th className="px-2 py-1">Ativas</th><th className="px-2 py-1">Retenção</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {funnelRows.map((row) => {
-                      const retention = row.total ? Math.round((row.active / row.total) * 100) : 0;
-                      return (
-                        <tr key={row.key} className="border-t border-[var(--dourado)]/25">
-                          <td className="px-2 py-1">{row.productTitle}</td>
-                          <td className="px-2 py-1">{row.offerCode}</td>
-                          <td className="px-2 py-1">{row.total}</td>
-                          <td className="px-2 py-1">{row.active}</td>
-                          <td className="px-2 py-1">{retention}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+              <h2 className="font-semibold">Funil produto/oferta</h2>
+              <div className="mt-3 h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={funnelChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.2} />
+                    <XAxis dataKey="name" stroke={chartPalette.bgStroke} />
+                    <YAxis stroke={chartPalette.bgStroke} />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="aprovadas" fill={chartPalette.gross} radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="ativas" fill={chartPalette.net} radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </section>
 
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Top produtos e status</h2>
-              <div className="mt-2 space-y-2">
-                {topProducts.map((entry) => (
-                  <div key={entry.title} className="flex items-center justify-between rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2 text-sm">
-                    <span className="line-clamp-1">{entry.title}</span>
-                    <strong>{entry.count}</strong>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 grid gap-2">
-                {statusDistribution.map((entry) => (
-                  <div key={entry.status} className="flex items-center justify-between rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2 text-sm">
-                    <span>{entry.status}</span>
-                    <strong>{entry.count}</strong>
-                  </div>
-                ))}
+              <h2 className="font-semibold">Status das vendas</h2>
+              <div className="mt-3 h-[320px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={statusPieData} dataKey="value" nameKey="name" outerRadius={105} fill={chartPalette.sales} label />
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </section>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Insights automáticos (IA heurística)</h2>
+              <h2 className="font-semibold">Análises automáticas orientadas por dados</h2>
               <ul className="mt-3 space-y-2 text-sm">
                 {aiInsights.map((item, idx) => (
-                  <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
-                    {item}
-                  </li>
+                  <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
                 ))}
               </ul>
             </section>
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Sugestões de criativos e divulgação</h2>
+              <h2 className="font-semibold">Sugestões de criativos e distribuição</h2>
               <ul className="mt-3 space-y-2 text-sm">
                 {creativeIdeas.map((item, idx) => (
-                  <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
-                    {item}
-                  </li>
+                  <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
                 ))}
               </ul>
             </section>
           </div>
+
+          <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
+            <h2 className="font-semibold">Top produtos por volume</h2>
+            <div className="mt-3 h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topProducts.slice(0, 8).map((item) => ({ name: item.title.slice(0, 20), vendas: item.count }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.2} />
+                  <XAxis dataKey="name" stroke={chartPalette.bgStroke} />
+                  <YAxis stroke={chartPalette.bgStroke} />
+                  <Tooltip />
+                  <Bar dataKey="vendas" fill={chartPalette.line2} radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
         </div>
       ) : null}
 
       {tab === "operations" ? (
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Usuários ativos / total</p><p className="mt-1 text-2xl font-black">{stats.activeUsersCount}/{stats.usersCount}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Produtos</p><p className="mt-1 text-2xl font-black">{stats.productsCount}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Compras ativas</p><p className="mt-1 text-2xl font-black">{stats.activePurchasesCount}</p></div>
-            <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4"><p className="text-xs text-[var(--carvao)]/75">Refund/Chargeback</p><p className="mt-1 text-2xl font-black">{stats.refundedCount}</p></div>
+            <MetricCard label="Usuários ativos / total" value={`${stats.activeUsersCount}/${stats.usersCount}`} />
+            <MetricCard label="Produtos" value={`${stats.productsCount}`} />
+            <MetricCard label="Compras ativas" value={`${stats.activePurchasesCount}`} />
+            <MetricCard label="Refund/Chargeback" value={`${stats.refundedCount}`} />
           </div>
           <AdminConsole openTickets={openTickets} users={users} products={products} />
         </div>
       ) : null}
     </section>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
+      <p className="text-xs text-[var(--carvao)]/75">{label}</p>
+      <p className="mt-1 text-2xl font-black">{value}</p>
+    </div>
   );
 }
