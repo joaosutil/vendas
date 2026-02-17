@@ -80,6 +80,12 @@ model Purchase {
   userId       String
   productId    String
   offerId      String?
+  paymentMethod String?
+  currency     String?
+  grossAmountCents Int?
+  feeAmountCents   Int?
+  netAmountCents   Int?
+  paymentMeta  Json?
   status       PurchaseStatus @default(ACTIVE)
   paidAt       DateTime?
   createdAt    DateTime       @default(now())

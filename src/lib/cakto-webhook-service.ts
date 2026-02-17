@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { normalizeId, type CaktoWebhookPayload } from "@/lib/cakto";
+import { extractCaktoFinancialData, normalizeId, type CaktoWebhookPayload } from "@/lib/cakto";
 import { createPasswordSetupToken } from "@/lib/password-setup";
 import { sendSetupPasswordEmail } from "@/lib/email";
 
@@ -108,6 +108,7 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
     const name = payload.data.customer.name?.trim();
     const product = await ensureProduct(productId, offerId);
     const offerDbId = await resolveOfferId(product.id, offerId);
+    const financial = extractCaktoFinancialData(payload);
 
     const user = await prisma.user.upsert({
       where: { email },
@@ -123,6 +124,12 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
           userId: user.id,
           productId: product.id,
           offerId: offerDbId,
+          paymentMethod: financial.paymentMethod,
+          currency: financial.currency,
+          grossAmountCents: financial.grossAmountCents,
+          feeAmountCents: financial.feeAmountCents,
+          netAmountCents: financial.netAmountCents,
+          paymentMeta: financial.paymentMeta,
           status: "ACTIVE",
           paidAt: new Date(),
         },
@@ -132,6 +139,12 @@ export async function processCaktoWebhook(payload: CaktoWebhookPayload) {
           userId: user.id,
           productId: product.id,
           offerId: offerDbId,
+          paymentMethod: financial.paymentMethod,
+          currency: financial.currency,
+          grossAmountCents: financial.grossAmountCents,
+          feeAmountCents: financial.feeAmountCents,
+          netAmountCents: financial.netAmountCents,
+          paymentMeta: financial.paymentMeta,
         },
       });
     }

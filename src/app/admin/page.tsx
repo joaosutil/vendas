@@ -21,11 +21,25 @@ type AdminPageProps = {
   searchParams?: Promise<{ from?: string; to?: string }>;
 };
 
+function normalizeMethod(method: string | null | undefined) {
+  const raw = (method ?? "").trim().toUpperCase();
+  if (!raw) return "DESCONHECIDO";
+  if (raw.includes("PIX")) return "PIX";
+  if (raw.includes("BOLETO")) return "BOLETO";
+  if (raw.includes("CART")) return "CARTAO";
+  return raw;
+}
+
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = (await searchParams) ?? {};
   const unitPriceCents = parseNumber(process.env.ADMIN_UNIT_PRICE_CENTS, 1990);
-  const feePercent = parseNumber(process.env.ADMIN_FEE_PERCENT, 12);
   const costPerSaleCents = parseNumber(process.env.ADMIN_COST_PER_SALE_CENTS, 0);
+  const fallbackNetByMethod: Record<string, number> = {
+    PIX: parseNumber(process.env.ADMIN_NET_PIX_CENTS, 1741),
+    BOLETO: parseNumber(process.env.ADMIN_NET_BOLETO_CENTS, 1642),
+    CARTAO: parseNumber(process.env.ADMIN_NET_CARTAO_CENTS, 1664),
+    DESCONHECIDO: parseNumber(process.env.ADMIN_NET_DEFAULT_CENTS, 1664),
+  };
   const defaultLastDays = parseNumber(process.env.ADMIN_FINANCE_DAYS, 14);
 
   const now = new Date();
@@ -92,16 +106,31 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const salesCount = periodPurchases.length;
   const refundedInPeriod = periodPurchases.filter((entry) => entry.status !== "ACTIVE").length;
   const keptSalesCount = Math.max(salesCount - refundedInPeriod, 0);
-  const grossCents = salesCount * unitPriceCents;
-  const feeCents = Math.round((grossCents * feePercent) / 100);
-  const refundsCents = refundedInPeriod * unitPriceCents;
+  const grossCents = periodPurchases.reduce((acc, purchase) => acc + (purchase.grossAmountCents ?? unitPriceCents), 0);
+  const feeCents = periodPurchases.reduce((acc, purchase) => {
+    if (typeof purchase.feeAmountCents === "number") return acc + purchase.feeAmountCents;
+    const gross = purchase.grossAmountCents ?? unitPriceCents;
+    const method = normalizeMethod(purchase.paymentMethod);
+    const fallbackNet = fallbackNetByMethod[method] ?? fallbackNetByMethod.DESCONHECIDO;
+    return acc + Math.max(gross - fallbackNet, 0);
+  }, 0);
+  const refundsCents = periodPurchases.reduce((acc, purchase) => {
+    if (purchase.status === "ACTIVE") return acc;
+    return acc + (purchase.grossAmountCents ?? unitPriceCents);
+  }, 0);
+  const netCents = periodPurchases.reduce((acc, purchase) => {
+    if (purchase.status !== "ACTIVE") return acc;
+    if (typeof purchase.netAmountCents === "number") return acc + purchase.netAmountCents;
+    const method = normalizeMethod(purchase.paymentMethod);
+    return acc + (fallbackNetByMethod[method] ?? fallbackNetByMethod.DESCONHECIDO);
+  }, 0);
   const costCents = keptSalesCount * costPerSaleCents;
-  const netCents = Math.max(grossCents - feeCents - refundsCents, 0);
   const profitCents = Math.max(netCents - costCents, 0);
 
   const dayMap = new Map<string, number>();
   const statusMap = new Map<string, number>();
   const productMap = new Map<string, number>();
+  const paymentMethodMap = new Map<string, { total: number; active: number; grossCents: number; feeCents: number; netCents: number }>();
   const funnelMap = new Map<
     string,
     { key: string; productTitle: string; offerCode: string; total: number; active: number; refunded: number; chargeback: number }
@@ -133,6 +162,22 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     if (purchase.status === "REFUNDED") mutable.refunded += 1;
     if (purchase.status === "CHARGEBACK") mutable.chargeback += 1;
     funnelMap.set(key, mutable);
+
+    const method = normalizeMethod(purchase.paymentMethod);
+    const methodBase =
+      paymentMethodMap.get(method) ?? { total: 0, active: 0, grossCents: 0, feeCents: 0, netCents: 0 };
+    methodBase.total += 1;
+    if (purchase.status === "ACTIVE") methodBase.active += 1;
+    const gross = purchase.grossAmountCents ?? unitPriceCents;
+    const net =
+      purchase.status === "ACTIVE"
+        ? (purchase.netAmountCents ?? (fallbackNetByMethod[method] ?? fallbackNetByMethod.DESCONHECIDO))
+        : 0;
+    const fee = purchase.feeAmountCents ?? Math.max(gross - net, 0);
+    methodBase.grossCents += gross;
+    methodBase.feeCents += fee;
+    methodBase.netCents += net;
+    paymentMethodMap.set(method, methodBase);
   }
 
   const dailySales = Array.from(dayMap.entries())
@@ -153,6 +198,14 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const funnelRows = Array.from(funnelMap.values())
     .sort((a, b) => b.total - a.total)
     .slice(0, 20);
+
+  const paymentMethodRows = Array.from(paymentMethodMap.entries())
+    .map(([method, data]) => ({
+      method,
+      ...data,
+      avgNetCents: data.active > 0 ? Math.round(data.netCents / data.active) : 0,
+    }))
+    .sort((a, b) => b.netCents - a.netCents);
 
   const fromValue = from.toISOString().slice(0, 10);
   const toValue = to.toISOString().slice(0, 10);
@@ -201,7 +254,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
         <h2 className="font-semibold">Financeiro ({fromValue} até {toValue})</h2>
         <p className="mt-1 text-xs text-[var(--carvao)]/75">
-          Valores estimados por regra operacional: ticket medio {toCurrency(unitPriceCents)} e taxa {feePercent}%.
+          Valores reais quando vierem da Cakto; quando nao vier, usa fallback por metodo de pagamento.
         </p>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-lg border border-[var(--dourado)]/40 bg-white p-3">
@@ -217,9 +270,12 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             <p className="mt-1 text-2xl font-black">{toCurrency(profitCents)}</p>
           </div>
           <div className="rounded-lg border border-[var(--dourado)]/40 bg-white p-3">
-            <p className="text-xs text-[var(--carvao)]/70">Vendas / Reembolsos</p>
+            <p className="text-xs text-[var(--carvao)]/70">Taxas / Estornos</p>
             <p className="mt-1 text-2xl font-black">
-              {salesCount}/{refundedInPeriod}
+              {toCurrency(feeCents)} / {toCurrency(refundsCents)}
+            </p>
+            <p className="mt-1 text-xs text-[var(--carvao)]/70">
+              {salesCount} vendas no periodo, {refundedInPeriod} com estorno.
             </p>
           </div>
         </div>
@@ -317,6 +373,46 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       </div>
 
       <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+        <h2 className="font-semibold">Liquido por metodo de pagamento</h2>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-[var(--carvao)]/75">
+                <th className="px-2 py-1">Metodo</th>
+                <th className="px-2 py-1">Compras</th>
+                <th className="px-2 py-1">Ativas</th>
+                <th className="px-2 py-1">Bruto</th>
+                <th className="px-2 py-1">Taxas</th>
+                <th className="px-2 py-1">Liquido</th>
+                <th className="px-2 py-1">Liquido medio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paymentMethodRows.length === 0 ? (
+                <tr>
+                  <td className="px-2 py-3 text-[var(--carvao)]/70" colSpan={7}>
+                    Sem dados no período.
+                  </td>
+                </tr>
+              ) : (
+                paymentMethodRows.map((row) => (
+                  <tr key={row.method} className="border-t border-[var(--dourado)]/25">
+                    <td className="px-2 py-2">{row.method}</td>
+                    <td className="px-2 py-2">{row.total}</td>
+                    <td className="px-2 py-2">{row.active}</td>
+                    <td className="px-2 py-2">{toCurrency(row.grossCents)}</td>
+                    <td className="px-2 py-2">{toCurrency(row.feeCents)}</td>
+                    <td className="px-2 py-2">{toCurrency(row.netCents)}</td>
+                    <td className="px-2 py-2">{toCurrency(row.avgNetCents)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
         <h2 className="font-semibold">Compras recentes</h2>
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -326,7 +422,10 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                 <th className="px-2 py-1">Usuario</th>
                 <th className="px-2 py-1">Produto</th>
                 <th className="px-2 py-1">Status</th>
-                <th className="px-2 py-1">Bruto estimado</th>
+                <th className="px-2 py-1">Pagamento</th>
+                <th className="px-2 py-1">Bruto</th>
+                <th className="px-2 py-1">Taxa</th>
+                <th className="px-2 py-1">Liquido</th>
               </tr>
             </thead>
             <tbody>
@@ -336,7 +435,29 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                   <td className="px-2 py-1">{purchase.user.email}</td>
                   <td className="px-2 py-1">{purchase.product.title}</td>
                   <td className="px-2 py-1">{purchase.status}</td>
-                  <td className="px-2 py-1">{toCurrency(unitPriceCents)}</td>
+                  <td className="px-2 py-1">{normalizeMethod(purchase.paymentMethod)}</td>
+                  <td className="px-2 py-1">{toCurrency(purchase.grossAmountCents ?? unitPriceCents)}</td>
+                  <td className="px-2 py-1">
+                    {toCurrency(
+                      purchase.feeAmountCents ??
+                        Math.max(
+                          (purchase.grossAmountCents ?? unitPriceCents) -
+                            (purchase.netAmountCents ??
+                              fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
+                              fallbackNetByMethod.DESCONHECIDO),
+                          0,
+                        ),
+                    )}
+                  </td>
+                  <td className="px-2 py-1">
+                    {toCurrency(
+                      purchase.status === "ACTIVE"
+                        ? (purchase.netAmountCents ??
+                            fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
+                            fallbackNetByMethod.DESCONHECIDO)
+                        : 0,
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

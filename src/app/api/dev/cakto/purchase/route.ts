@@ -14,6 +14,10 @@ export async function POST(request: Request) {
     productId?: string;
     offerId?: string;
     event?: "purchase_approved" | "refund" | "chargeback";
+    paymentMethod?: "PIX" | "BOLETO" | "CARTAO";
+    grossAmount?: number;
+    feeAmount?: number;
+    netAmount?: number;
   };
 
   const email = body.email?.trim().toLowerCase() || "teste+cakto@exemplo.com";
@@ -31,6 +35,11 @@ export async function POST(request: Request) {
       customer: { email, name },
       product: { id: body.productId ?? "ansiedade-prod-1" },
       offer: { id: body.offerId ?? "ansiedade-offer-1" },
+      paymentMethod: body.paymentMethod ?? "PIX",
+      grossAmount: body.grossAmount ?? 19.9,
+      feeAmount: body.feeAmount ?? 2.49,
+      netAmount: body.netAmount ?? 17.41,
+      currency: "BRL",
     },
   };
 

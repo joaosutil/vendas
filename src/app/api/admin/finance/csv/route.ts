@@ -17,6 +17,20 @@ function toCsvCell(value: string | number | null | undefined) {
   return raw;
 }
 
+function parseNumber(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeMethod(method: string | null | undefined) {
+  const raw = (method ?? "").trim().toUpperCase();
+  if (!raw) return "DESCONHECIDO";
+  if (raw.includes("PIX")) return "PIX";
+  if (raw.includes("BOLETO")) return "BOLETO";
+  if (raw.includes("CART")) return "CARTAO";
+  return raw;
+}
+
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false }, { status: 403 });
@@ -39,10 +53,13 @@ export async function GET(request: Request) {
     },
   });
 
-  const unitPriceCents = Number(process.env.ADMIN_UNIT_PRICE_CENTS ?? 1990);
-  const feePercent = Number(process.env.ADMIN_FEE_PERCENT ?? 12);
-  const feeCents = Math.round((unitPriceCents * feePercent) / 100);
-  const netCentsBase = Math.max(unitPriceCents - feeCents, 0);
+  const unitPriceCents = parseNumber(process.env.ADMIN_UNIT_PRICE_CENTS, 1990);
+  const fallbackNetByMethod: Record<string, number> = {
+    PIX: parseNumber(process.env.ADMIN_NET_PIX_CENTS, 1741),
+    BOLETO: parseNumber(process.env.ADMIN_NET_BOLETO_CENTS, 1642),
+    CARTAO: parseNumber(process.env.ADMIN_NET_CARTAO_CENTS, 1664),
+    DESCONHECIDO: parseNumber(process.env.ADMIN_NET_DEFAULT_CENTS, 1664),
+  };
 
   const lines = [
     [
@@ -53,6 +70,8 @@ export async function GET(request: Request) {
       "product_title",
       "offer_cakto_id",
       "offer_checkout_url",
+      "payment_method",
+      "currency",
       "gross_cents",
       "fee_cents",
       "net_cents",
@@ -60,9 +79,11 @@ export async function GET(request: Request) {
   ];
 
   for (const row of rows) {
-    const gross = unitPriceCents;
-    const fee = feeCents;
-    const net = row.status === "ACTIVE" ? netCentsBase : 0;
+    const method = normalizeMethod(row.paymentMethod);
+    const gross = row.grossAmountCents ?? unitPriceCents;
+    const netFallback = fallbackNetByMethod[method] ?? fallbackNetByMethod.DESCONHECIDO;
+    const net = row.status === "ACTIVE" ? (row.netAmountCents ?? netFallback) : 0;
+    const fee = row.feeAmountCents ?? Math.max(gross - net, 0);
     lines.push(
       [
         toCsvCell(row.id),
@@ -72,6 +93,8 @@ export async function GET(request: Request) {
         toCsvCell(row.product.title),
         toCsvCell(row.offer?.caktoOfferId ?? ""),
         toCsvCell(row.offer?.checkoutUrl ?? ""),
+        toCsvCell(method),
+        toCsvCell(row.currency ?? "BRL"),
         toCsvCell(gross),
         toCsvCell(fee),
         toCsvCell(net),
