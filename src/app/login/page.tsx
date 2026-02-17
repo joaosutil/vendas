@@ -1,11 +1,23 @@
 import Link from "next/link";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<{ error?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = (await searchParams) ?? {};
+  const hasCredentialError = params.error === "credenciais";
+
   return (
     <main className="mx-auto flex min-h-screen max-w-md items-center px-4 py-16">
       <div className="w-full rounded-2xl border border-white/60 bg-white/75 p-6 shadow-lg backdrop-blur">
         <h1 className="text-2xl font-bold">Entrar na área de membros</h1>
         <p className="mt-2 text-sm text-[var(--carvao)]/80">Use o e-mail da compra para acessar seu conteúdo.</p>
+        {hasCredentialError ? (
+          <p className="mt-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+            E-mail ou senha inválidos.
+          </p>
+        ) : null}
         <form action="/api/auth/login" method="post" className="mt-5 space-y-3">
           <input
             required

@@ -12,14 +12,14 @@ export async function POST(request: Request) {
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user?.passwordHash) {
-    return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl));
+    return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
   }
 
   const valid = await verifyPassword(password, user.passwordHash);
   if (!valid) {
-    return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl));
+    return NextResponse.redirect(new URL("/login?error=credenciais", appBaseUrl), 303);
   }
 
   await setSessionCookie({ userId: user.id, email: user.email });
-  return NextResponse.redirect(new URL("/app", appBaseUrl));
+  return NextResponse.redirect(new URL("/app", appBaseUrl), 303);
 }

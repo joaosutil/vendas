@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const password = String(formData.get("password") || "");
 
   if (!token || password.length < 8) {
-    return NextResponse.redirect(new URL("/definir-senha?error=invalid", appBaseUrl));
+    return NextResponse.redirect(new URL("/definir-senha?error=invalid", appBaseUrl), 303);
   }
 
   const tokenHash = hashSetupToken(token);
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   });
 
   if (!setup || setup.usedAt || setup.expiresAt < new Date()) {
-    return NextResponse.redirect(new URL("/definir-senha?error=expired", appBaseUrl));
+    return NextResponse.redirect(new URL("/definir-senha?error=expired", appBaseUrl), 303);
   }
 
   const passwordHash = await hashPassword(password);
@@ -39,5 +39,5 @@ export async function POST(request: Request) {
   ]);
 
   await setSessionCookie({ userId: setup.user.id, email: setup.user.email });
-  return NextResponse.redirect(new URL("/app", appBaseUrl));
+  return NextResponse.redirect(new URL("/app", appBaseUrl), 303);
 }
