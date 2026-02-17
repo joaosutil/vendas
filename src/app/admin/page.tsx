@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ProductType, PurchaseStatus, SupportTicketStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { AdminConsole } from "@/components/admin/admin-console";
 
@@ -55,11 +56,17 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   let productsCount = 0;
   let activePurchasesCount = 0;
   let refundedCount = 0;
-  let openTickets: Awaited<ReturnType<typeof prisma.supportTicket.findMany>> = [];
+  let openTickets: Array<{
+    id: string;
+    subject: string;
+    status: SupportTicketStatus;
+    lastMessageAt: Date;
+    user: { email: string };
+  }> = [];
   let recentPurchases: Array<{
     id: string;
     createdAt: Date;
-    status: "ACTIVE" | "REFUNDED" | "CHARGEBACK";
+    status: PurchaseStatus;
     paymentMethod: string | null;
     grossAmountCents: number | null;
     feeAmountCents: number | null;
@@ -70,7 +77,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   let periodPurchases: Array<{
     id: string;
     createdAt: Date;
-    status: "ACTIVE" | "REFUNDED" | "CHARGEBACK";
+    status: PurchaseStatus;
     paymentMethod: string | null;
     grossAmountCents: number | null;
     feeAmountCents: number | null;
@@ -82,7 +89,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     id: string;
     name: string | null;
     email: string;
-    role: "USER" | "ADMIN";
+    role: UserRole;
     active: boolean;
     createdAt: Date;
     _count: { purchases: number };
@@ -91,7 +98,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     id: string;
     slug: string;
     title: string;
-    type: "EBOOK" | "VIDEO_COURSE" | "OTHER";
+    type: ProductType;
     active: boolean;
     ebookAsset: { id: string } | null;
     modules: Array<{ id: string; lessons: Array<{ id: string }> }>;
