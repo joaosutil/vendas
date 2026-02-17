@@ -1,11 +1,6 @@
-import Link from "next/link";
 import type { ProductType, PurchaseStatus, SupportTicketStatus, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { AdminConsole } from "@/components/admin/admin-console";
-
-function toCurrency(valueCents: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valueCents / 100);
-}
+import { EnterpriseAdminHub } from "@/components/admin/enterprise-admin-hub";
 
 function parseNumber(value: string | undefined, fallback: number) {
   const parsed = Number(value);
@@ -18,10 +13,6 @@ function parseDate(value: string | undefined, fallback: Date) {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
-type AdminPageProps = {
-  searchParams?: Promise<{ from?: string; to?: string }>;
-};
-
 function normalizeMethod(method: string | null | undefined) {
   const raw = (method ?? "").trim().toUpperCase();
   if (!raw) return "DESCONHECIDO";
@@ -30,6 +21,10 @@ function normalizeMethod(method: string | null | undefined) {
   if (raw.includes("CART")) return "CARTAO";
   return raw;
 }
+
+type AdminPageProps = {
+  searchParams?: Promise<{ from?: string; to?: string }>;
+};
 
 export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = (await searchParams) ?? {};
@@ -130,7 +125,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       }),
       prisma.purchase.findMany({
         orderBy: { createdAt: "desc" },
-        take: 10,
+        take: 12,
         include: {
           user: { select: { email: true } },
           product: { select: { title: true } },
@@ -208,7 +203,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const costCents = keptSalesCount * costPerSaleCents;
   const profitCents = Math.max(netCents - costCents, 0);
 
-  const dayMap = new Map<string, number>();
+  const dayMap = new Map<string, { sales: number; grossCents: number; netCents: number; refunds: number }>();
   const statusMap = new Map<string, number>();
   const productMap = new Map<string, number>();
   const paymentMethodMap = new Map<string, { total: number; active: number; grossCents: number; feeCents: number; netCents: number }>();
@@ -219,7 +214,21 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
 
   for (const purchase of periodPurchases) {
     const day = purchase.createdAt.toISOString().slice(0, 10);
-    dayMap.set(day, (dayMap.get(day) ?? 0) + 1);
+    const gross = purchase.grossAmountCents ?? unitPriceCents;
+    const method = normalizeMethod(purchase.paymentMethod);
+    const net =
+      purchase.status === "ACTIVE"
+        ? (purchase.netAmountCents ?? (fallbackNetByMethod[method] ?? fallbackNetByMethod.DESCONHECIDO))
+        : 0;
+    const fee = purchase.feeAmountCents ?? Math.max(gross - net, 0);
+
+    const dayCurrent = dayMap.get(day) ?? { sales: 0, grossCents: 0, netCents: 0, refunds: 0 };
+    dayCurrent.sales += 1;
+    dayCurrent.grossCents += gross;
+    dayCurrent.netCents += net;
+    if (purchase.status !== "ACTIVE") dayCurrent.refunds += 1;
+    dayMap.set(day, dayCurrent);
+
     statusMap.set(purchase.status, (statusMap.get(purchase.status) ?? 0) + 1);
     productMap.set(purchase.product.title, (productMap.get(purchase.product.title) ?? 0) + 1);
 
@@ -244,27 +253,19 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     if (purchase.status === "CHARGEBACK") mutable.chargeback += 1;
     funnelMap.set(key, mutable);
 
-    const method = normalizeMethod(purchase.paymentMethod);
     const methodBase =
       paymentMethodMap.get(method) ?? { total: 0, active: 0, grossCents: 0, feeCents: 0, netCents: 0 };
     methodBase.total += 1;
     if (purchase.status === "ACTIVE") methodBase.active += 1;
-    const gross = purchase.grossAmountCents ?? unitPriceCents;
-    const net =
-      purchase.status === "ACTIVE"
-        ? (purchase.netAmountCents ?? (fallbackNetByMethod[method] ?? fallbackNetByMethod.DESCONHECIDO))
-        : 0;
-    const fee = purchase.feeAmountCents ?? Math.max(gross - net, 0);
     methodBase.grossCents += gross;
     methodBase.feeCents += fee;
     methodBase.netCents += net;
     paymentMethodMap.set(method, methodBase);
   }
 
-  const dailySales = Array.from(dayMap.entries())
+  const dailyFinance = Array.from(dayMap.entries())
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, count]) => ({ date, count }));
-  const maxDaily = Math.max(...dailySales.map((entry) => entry.count), 1);
+    .map(([date, values]) => ({ date, ...values }));
 
   const statusDistribution = ["ACTIVE", "REFUNDED", "CHARGEBACK"].map((status) => ({
     status,
@@ -274,306 +275,132 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const topProducts = Array.from(productMap.entries())
     .map(([title, count]) => ({ title, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    .slice(0, 10);
 
   const funnelRows = Array.from(funnelMap.values())
     .sort((a, b) => b.total - a.total)
-    .slice(0, 20);
+    .slice(0, 30);
 
   const paymentMethodRows = Array.from(paymentMethodMap.entries())
     .map(([method, data]) => ({
       method,
       ...data,
       avgNetCents: data.active > 0 ? Math.round(data.netCents / data.active) : 0,
+      share: salesCount ? Math.round((data.total / salesCount) * 100) : 0,
     }))
     .sort((a, b) => b.netCents - a.netCents);
+
+  const avgGrossTicket = salesCount ? Math.round(grossCents / salesCount) : 0;
+  const avgNetTicket = keptSalesCount ? Math.round(netCents / keptSalesCount) : 0;
+  const refundRate = salesCount ? Math.round((refundedInPeriod / salesCount) * 100) : 0;
+  const retentionRate = salesCount ? Math.round((keptSalesCount / salesCount) * 100) : 0;
+  const marginRate = grossCents ? Math.round((netCents / grossCents) * 100) : 0;
+
+  const half = Math.max(1, Math.floor(dailyFinance.length / 2));
+  const firstHalfSales = dailyFinance.slice(0, half).reduce((acc, item) => acc + item.sales, 0);
+  const secondHalfSales = dailyFinance.slice(half).reduce((acc, item) => acc + item.sales, 0);
+  const growthRate = firstHalfSales ? Math.round(((secondHalfSales - firstHalfSales) / firstHalfSales) * 100) : 0;
+
+  const aiInsights: string[] = [
+    `Margem líquida atual em ${marginRate}%. ${marginRate < 70 ? "Considere renegociar taxa média ou elevar ticket para proteger lucro." : "Margem saudável para escalar tráfego."}`,
+    `Taxa de retenção pós-venda em ${retentionRate}% (refund + chargeback em ${refundRate}%). ${refundRate > 12 ? "Reforce onboarding e expectativa na página de vendas." : "Retenção consistente no período."}`,
+    `Ticket médio bruto ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(avgGrossTicket / 100)} e líquido ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(avgNetTicket / 100)}.`,
+    `Tendência de vendas no período: ${growthRate >= 0 ? "+" : ""}${growthRate}% entre primeira e segunda metade.`,
+  ];
+
+  const creativeIdeas = [
+    "Criativo 1: vídeo curto de 25s com dor real + prova visual do conteúdo + CTA direto para checkout.",
+    "Criativo 2: carrossel ‘antes x depois de 7 dias’ com microvitórias e chamada para ação.",
+    "Criativo 3: anúncio UGC com gancho ‘o que eu faria se tivesse ansiedade e só R$19,90 hoje’.",
+    "Distribuição: 60% Meta Ads (conversão), 25% remarketing, 15% creators/afiliados.",
+  ];
 
   const fromValue = from.toISOString().slice(0, 10);
   const toValue = to.toISOString().slice(0, 10);
   const csvUrl = `/api/admin/finance/csv?from=${encodeURIComponent(fromValue)}&to=${encodeURIComponent(toValue)}`;
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-2xl border border-white/60 bg-white/75 p-5">
-        <h1 className="text-3xl font-bold">Dashboard Admin</h1>
-        <p className="mt-1 text-sm text-[var(--carvao)]/80">
-          Financeiro, vendas, controle de acessos, suporte e cadastro operacional.
-        </p>
-        <form method="get" className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-          <input type="date" name="from" defaultValue={fromValue} className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-          <input type="date" name="to" defaultValue={toValue} className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-          <button type="submit" className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white">
-            Aplicar filtro
-          </button>
-          <Link href={csvUrl} className="rounded-lg border border-[var(--ink)]/25 bg-white px-4 py-2 text-sm font-semibold text-[var(--ink)]">
-            Exportar CSV
-          </Link>
-        </form>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-white/60 bg-white/75 p-4">
-          <p className="text-xs text-[var(--carvao)]/75">Usuarios ativos / total</p>
-          <p className="mt-1 text-3xl font-black">
-            {activeUsersCount}/{usersCount}
-          </p>
-        </div>
-        <div className="rounded-xl border border-white/60 bg-white/75 p-4">
-          <p className="text-xs text-[var(--carvao)]/75">Produtos</p>
-          <p className="mt-1 text-3xl font-black">{productsCount}</p>
-        </div>
-        <div className="rounded-xl border border-white/60 bg-white/75 p-4">
-          <p className="text-xs text-[var(--carvao)]/75">Compras ativas</p>
-          <p className="mt-1 text-3xl font-black">{activePurchasesCount}</p>
-        </div>
-        <div className="rounded-xl border border-white/60 bg-white/75 p-4">
-          <p className="text-xs text-[var(--carvao)]/75">Refund/chargeback</p>
-          <p className="mt-1 text-3xl font-black">{refundedCount}</p>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
-        <h2 className="font-semibold">Financeiro ({fromValue} até {toValue})</h2>
-        <p className="mt-1 text-xs text-[var(--carvao)]/75">
-          Valores reais quando vierem da Cakto; quando nao vier, usa fallback por metodo de pagamento.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div className="rounded-lg border border-[var(--dourado)]/40 bg-white p-3">
-            <p className="text-xs text-[var(--carvao)]/70">Bruto</p>
-            <p className="mt-1 text-2xl font-black">{toCurrency(grossCents)}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--dourado)]/40 bg-white p-3">
-            <p className="text-xs text-[var(--carvao)]/70">Liquido estimado</p>
-            <p className="mt-1 text-2xl font-black">{toCurrency(netCents)}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--dourado)]/40 bg-white p-3">
-            <p className="text-xs text-[var(--carvao)]/70">Lucro estimado</p>
-            <p className="mt-1 text-2xl font-black">{toCurrency(profitCents)}</p>
-          </div>
-          <div className="rounded-lg border border-[var(--dourado)]/40 bg-white p-3">
-            <p className="text-xs text-[var(--carvao)]/70">Taxas / Estornos</p>
-            <p className="mt-1 text-2xl font-black">
-              {toCurrency(feeCents)} / {toCurrency(refundsCents)}
-            </p>
-            <p className="mt-1 text-xs text-[var(--carvao)]/70">
-              {salesCount} vendas no periodo, {refundedInPeriod} com estorno.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <section className="rounded-2xl border border-white/60 bg-white/75 p-4 xl:col-span-2">
-          <h2 className="font-semibold">Grafico de vendas por dia</h2>
-          <div className="mt-4 grid gap-2">
-            {dailySales.length === 0 ? (
-              <p className="text-sm text-[var(--carvao)]/70">Sem vendas no periodo.</p>
-            ) : (
-              dailySales.map((entry) => (
-                <div key={entry.date} className="grid grid-cols-[7rem_1fr_3rem] items-center gap-2 text-xs">
-                  <span className="text-[var(--carvao)]/75">{entry.date}</span>
-                  <div className="h-3 rounded-full bg-[var(--dourado)]/30">
-                    <div className="h-3 rounded-full bg-[var(--ink)]" style={{ width: `${Math.max((entry.count / maxDaily) * 100, 4)}%` }} />
-                  </div>
-                  <span className="text-right font-semibold">{entry.count}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
-          <h2 className="font-semibold">Status das vendas</h2>
-          <div className="mt-3 space-y-2 text-sm">
-            {statusDistribution.map((entry) => (
-              <div key={entry.status} className="flex items-center justify-between rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
-                <span>{entry.status}</span>
-                <strong>{entry.count}</strong>
-              </div>
-            ))}
-          </div>
-
-          <h3 className="mt-4 font-semibold">Top produtos</h3>
-          <div className="mt-2 space-y-2 text-sm">
-            {topProducts.length === 0 ? (
-              <p className="text-[var(--carvao)]/70">Sem dados no periodo.</p>
-            ) : (
-              topProducts.map((entry) => (
-                <div key={entry.title} className="flex items-center justify-between rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
-                  <span className="line-clamp-1">{entry.title}</span>
-                  <strong>{entry.count}</strong>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-
-      <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
-        <h2 className="font-semibold">Funil por produto/oferta</h2>
-        <p className="mt-1 text-xs text-[var(--carvao)]/75">Baseado nas compras no período filtrado (aprovadas, ativas e devoluções).</p>
-        <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--carvao)]/75">
-                <th className="px-2 py-1">Produto</th>
-                <th className="px-2 py-1">Oferta</th>
-                <th className="px-2 py-1">Aprovadas</th>
-                <th className="px-2 py-1">Ativas</th>
-                <th className="px-2 py-1">Refund</th>
-                <th className="px-2 py-1">Chargeback</th>
-                <th className="px-2 py-1">Retenção</th>
-              </tr>
-            </thead>
-            <tbody>
-              {funnelRows.length === 0 ? (
-                <tr>
-                  <td className="px-2 py-3 text-[var(--carvao)]/70" colSpan={7}>
-                    Sem dados no período.
-                  </td>
-                </tr>
-              ) : (
-                funnelRows.map((row) => {
-                  const retention = row.total ? Math.round((row.active / row.total) * 100) : 0;
-                  return (
-                    <tr key={row.key} className="border-t border-[var(--dourado)]/25">
-                      <td className="px-2 py-2">{row.productTitle}</td>
-                      <td className="px-2 py-2">{row.offerCode}</td>
-                      <td className="px-2 py-2">{row.total}</td>
-                      <td className="px-2 py-2">{row.active}</td>
-                      <td className="px-2 py-2">{row.refunded}</td>
-                      <td className="px-2 py-2">{row.chargeback}</td>
-                      <td className="px-2 py-2">{retention}%</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
-        <h2 className="font-semibold">Liquido por metodo de pagamento</h2>
-        <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--carvao)]/75">
-                <th className="px-2 py-1">Metodo</th>
-                <th className="px-2 py-1">Compras</th>
-                <th className="px-2 py-1">Ativas</th>
-                <th className="px-2 py-1">Bruto</th>
-                <th className="px-2 py-1">Taxas</th>
-                <th className="px-2 py-1">Liquido</th>
-                <th className="px-2 py-1">Liquido medio</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paymentMethodRows.length === 0 ? (
-                <tr>
-                  <td className="px-2 py-3 text-[var(--carvao)]/70" colSpan={7}>
-                    Sem dados no período.
-                  </td>
-                </tr>
-              ) : (
-                paymentMethodRows.map((row) => (
-                  <tr key={row.method} className="border-t border-[var(--dourado)]/25">
-                    <td className="px-2 py-2">{row.method}</td>
-                    <td className="px-2 py-2">{row.total}</td>
-                    <td className="px-2 py-2">{row.active}</td>
-                    <td className="px-2 py-2">{toCurrency(row.grossCents)}</td>
-                    <td className="px-2 py-2">{toCurrency(row.feeCents)}</td>
-                    <td className="px-2 py-2">{toCurrency(row.netCents)}</td>
-                    <td className="px-2 py-2">{toCurrency(row.avgNetCents)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
-        <h2 className="font-semibold">Compras recentes</h2>
-        <div className="mt-3 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-[var(--carvao)]/75">
-                <th className="px-2 py-1">Data</th>
-                <th className="px-2 py-1">Usuario</th>
-                <th className="px-2 py-1">Produto</th>
-                <th className="px-2 py-1">Status</th>
-                <th className="px-2 py-1">Pagamento</th>
-                <th className="px-2 py-1">Bruto</th>
-                <th className="px-2 py-1">Taxa</th>
-                <th className="px-2 py-1">Liquido</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentPurchases.map((purchase) => (
-                <tr key={purchase.id} className="border-t border-[var(--dourado)]/25">
-                  <td className="px-2 py-1">{new Date(purchase.createdAt).toLocaleString("pt-BR")}</td>
-                  <td className="px-2 py-1">{purchase.user.email}</td>
-                  <td className="px-2 py-1">{purchase.product.title}</td>
-                  <td className="px-2 py-1">{purchase.status}</td>
-                  <td className="px-2 py-1">{normalizeMethod(purchase.paymentMethod)}</td>
-                  <td className="px-2 py-1">{toCurrency(purchase.grossAmountCents ?? unitPriceCents)}</td>
-                  <td className="px-2 py-1">
-                    {toCurrency(
-                      purchase.feeAmountCents ??
-                        Math.max(
-                          (purchase.grossAmountCents ?? unitPriceCents) -
-                            (purchase.netAmountCents ??
-                              fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
-                              fallbackNetByMethod.DESCONHECIDO),
-                          0,
-                        ),
-                    )}
-                  </td>
-                  <td className="px-2 py-1">
-                    {toCurrency(
-                      purchase.status === "ACTIVE"
-                        ? (purchase.netAmountCents ??
-                            fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
-                            fallbackNetByMethod.DESCONHECIDO)
-                        : 0,
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <AdminConsole
-        openTickets={openTickets.map((ticket) => ({
-          id: ticket.id,
-          subject: ticket.subject,
-          status: ticket.status,
-          userEmail: ticket.user.email,
-          lastMessageAt: ticket.lastMessageAt.toISOString(),
-        }))}
-        users={users.map((entry) => ({
-          id: entry.id,
-          name: entry.name,
-          email: entry.email,
-          role: entry.role,
-          active: entry.active,
-          purchasesCount: entry._count.purchases,
-          createdAt: entry.createdAt.toISOString(),
-        }))}
-        products={products.map((product) => ({
-          id: product.id,
-          slug: product.slug,
-          title: product.title,
-          type: product.type,
-          active: product.active,
-          modulesCount: product.modules.length,
-          lessonsCount: product.modules.reduce((acc, module) => acc + module.lessons.length, 0),
-          hasEbookFile: Boolean(product.ebookAsset),
-        }))}
-      />
-    </section>
+    <EnterpriseAdminHub
+      fromValue={fromValue}
+      toValue={toValue}
+      csvUrl={csvUrl}
+      stats={{
+        usersCount,
+        activeUsersCount,
+        productsCount,
+        activePurchasesCount,
+        refundedCount,
+        salesCount,
+        keptSalesCount,
+        grossCents,
+        netCents,
+        feeCents,
+        refundsCents,
+        profitCents,
+        avgGrossTicket,
+        avgNetTicket,
+        refundRate,
+        retentionRate,
+        marginRate,
+        growthRate,
+      }}
+      dailyFinance={dailyFinance}
+      statusDistribution={statusDistribution}
+      topProducts={topProducts}
+      paymentMethodRows={paymentMethodRows}
+      funnelRows={funnelRows}
+      recentPurchases={recentPurchases.map((purchase) => ({
+        id: purchase.id,
+        createdAt: purchase.createdAt.toISOString(),
+        email: purchase.user.email,
+        productTitle: purchase.product.title,
+        status: purchase.status,
+        paymentMethod: normalizeMethod(purchase.paymentMethod),
+        grossAmountCents: purchase.grossAmountCents ?? unitPriceCents,
+        feeAmountCents:
+          purchase.feeAmountCents ??
+          Math.max(
+            (purchase.grossAmountCents ?? unitPriceCents) -
+              (purchase.netAmountCents ??
+                fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
+                fallbackNetByMethod.DESCONHECIDO),
+            0,
+          ),
+        netAmountCents:
+          purchase.status === "ACTIVE"
+            ? (purchase.netAmountCents ??
+              fallbackNetByMethod[normalizeMethod(purchase.paymentMethod)] ??
+              fallbackNetByMethod.DESCONHECIDO)
+            : 0,
+      }))}
+      aiInsights={aiInsights}
+      creativeIdeas={creativeIdeas}
+      openTickets={openTickets.map((ticket) => ({
+        id: ticket.id,
+        subject: ticket.subject,
+        status: ticket.status,
+        userEmail: ticket.user.email,
+        lastMessageAt: ticket.lastMessageAt.toISOString(),
+      }))}
+      users={users.map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        email: entry.email,
+        role: entry.role,
+        active: entry.active,
+        purchasesCount: entry._count.purchases,
+        createdAt: entry.createdAt.toISOString(),
+      }))}
+      products={products.map((product) => ({
+        id: product.id,
+        slug: product.slug,
+        title: product.title,
+        type: product.type,
+        active: product.active,
+        modulesCount: product.modules.length,
+        lessonsCount: product.modules.reduce((acc, module) => acc + module.lessons.length, 0),
+        hasEbookFile: Boolean(product.ebookAsset),
+      }))}
+    />
   );
 }
