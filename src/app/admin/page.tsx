@@ -56,8 +56,28 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   let activePurchasesCount = 0;
   let refundedCount = 0;
   let openTickets: Awaited<ReturnType<typeof prisma.supportTicket.findMany>> = [];
-  let recentPurchases: Awaited<ReturnType<typeof prisma.purchase.findMany>> = [];
-  let periodPurchases: Awaited<ReturnType<typeof prisma.purchase.findMany>> = [];
+  let recentPurchases: Array<{
+    id: string;
+    createdAt: Date;
+    status: "ACTIVE" | "REFUNDED" | "CHARGEBACK";
+    paymentMethod: string | null;
+    grossAmountCents: number | null;
+    feeAmountCents: number | null;
+    netAmountCents: number | null;
+    user: { email: string };
+    product: { title: string };
+  }> = [];
+  let periodPurchases: Array<{
+    id: string;
+    createdAt: Date;
+    status: "ACTIVE" | "REFUNDED" | "CHARGEBACK";
+    paymentMethod: string | null;
+    grossAmountCents: number | null;
+    feeAmountCents: number | null;
+    netAmountCents: number | null;
+    product: { title: string };
+    offer: { caktoOfferId: string; checkoutUrl: string } | null;
+  }> = [];
   let users: Array<{
     id: string;
     name: string | null;
