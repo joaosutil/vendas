@@ -9,6 +9,8 @@
   --cobre: #7d6a5a;
   --background: var(--creme);
   --foreground: var(--carvao);
+  --surface: rgba(255, 255, 255, 0.75);
+  --surface-border: rgba(255, 255, 255, 0.6);
 }
 
 @theme inline {
@@ -19,11 +21,43 @@
 
 body {
   background:
-    radial-gradient(circle at 15% 15%, rgba(235, 209, 164, 0.35), transparent 35%),
-    radial-gradient(circle at 85% 20%, rgba(224, 195, 146, 0.25), transparent 35%),
-    linear-gradient(135deg, #f7f6f4 0%, #f3efea 45%, #f7f6f4 100%);
+    radial-gradient(circle at 15% 15%, color-mix(in oklab, var(--dourado) 35%, transparent), transparent 35%),
+    radial-gradient(circle at 85% 20%, color-mix(in oklab, var(--areia) 25%, transparent), transparent 35%),
+    linear-gradient(135deg, var(--background) 0%, color-mix(in oklab, var(--background) 85%, #ece7df) 45%, var(--background) 100%);
   color: var(--foreground);
   font-family: var(--font-body), sans-serif;
+}
+
+:root[data-reader-theme="dark"] {
+  --background: #0f141c;
+  --foreground: #e5e7eb;
+  --carvao: #d1d5db;
+  --ink: #f3f4f6;
+  --surface: rgba(20, 27, 37, 0.84);
+  --surface-border: rgba(100, 116, 139, 0.45);
+}
+
+:root[data-reader-theme="reading"] {
+  --background: #f6f0e3;
+  --foreground: #2d2a26;
+  --carvao: #2d2a26;
+  --ink: #1e293b;
+  --surface: rgba(255, 250, 241, 0.84);
+  --surface-border: rgba(198, 167, 110, 0.42);
+}
+
+:root[data-reader-theme="dark"] body {
+  background:
+    radial-gradient(circle at 12% 15%, rgba(50, 66, 95, 0.38), transparent 36%),
+    radial-gradient(circle at 88% 20%, rgba(38, 53, 79, 0.3), transparent 34%),
+    linear-gradient(135deg, #0f141c 0%, #121a27 45%, #0f141c 100%);
+}
+
+:root[data-reader-theme="reading"] body {
+  background:
+    radial-gradient(circle at 12% 15%, rgba(233, 212, 166, 0.25), transparent 36%),
+    radial-gradient(circle at 88% 20%, rgba(186, 161, 117, 0.18), transparent 34%),
+    linear-gradient(135deg, #f6f0e3 0%, #f2e9d9 45%, #f6f0e3 100%);
 }
 
 h1,

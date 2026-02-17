@@ -42,7 +42,7 @@ export async function GET(_: Request, context: { params: Promise<{ slug: string 
   const access = await requireMemberProductAccess(slug);
   if (!access) return new NextResponse("Forbidden", { status: 403 });
 
-  const relativeFilePath = getEbookFilePathBySlug(slug);
+  const relativeFilePath = await getEbookFilePathBySlug(slug);
   if (!relativeFilePath) return new NextResponse("Not found", { status: 404 });
 
   try {

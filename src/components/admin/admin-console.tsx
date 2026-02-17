@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type AdminConsoleProps = {
@@ -19,9 +20,19 @@ type AdminConsoleProps = {
     purchasesCount: number;
     createdAt: string;
   }>;
+  products: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    type: "EBOOK" | "VIDEO_COURSE" | "OTHER";
+    active: boolean;
+    modulesCount: number;
+    lessonsCount: number;
+    hasEbookFile: boolean;
+  }>;
 };
 
-export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
+export function AdminConsole({ openTickets, users, products }: AdminConsoleProps) {
   const [activeTab, setActiveTab] = useState<"users" | "products" | "support">("users");
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -29,6 +40,8 @@ export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
   const [userRole, setUserRole] = useState<"USER" | "ADMIN">("USER");
   const [productSlug, setProductSlug] = useState("");
   const [productTitle, setProductTitle] = useState("");
+  const [productDescription, setProductDescription] = useState("");
+  const [productType, setProductType] = useState<"EBOOK" | "VIDEO_COURSE" | "OTHER">("EBOOK");
   const [caktoProductId, setCaktoProductId] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [offerId, setOfferId] = useState("");
@@ -74,6 +87,8 @@ export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
         body: JSON.stringify({
           slug: productSlug.trim(),
           title: productTitle.trim(),
+          description: productDescription.trim(),
+          type: productType,
           caktoProductId: caktoProductId.trim(),
           offerCheckoutUrl: checkoutUrl.trim(),
           caktoOfferId: offerId.trim(),
@@ -85,6 +100,8 @@ export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
       }
       setProductSlug("");
       setProductTitle("");
+      setProductDescription("");
+      setProductType("EBOOK");
       setCaktoProductId("");
       setCheckoutUrl("");
       setOfferId("");
@@ -222,8 +239,55 @@ export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
       {activeTab === "products" ? (
         <div className="grid gap-4 xl:grid-cols-2">
           <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
-            <h2 className="font-semibold">Criar usuario</h2>
+            <h2 className="font-semibold">Criar produto</h2>
             <div className="mt-3 space-y-2">
+              <input value={productSlug} onChange={(e) => setProductSlug(e.target.value)} placeholder="Slug (ex: foco)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+              <input value={productTitle} onChange={(e) => setProductTitle(e.target.value)} placeholder="Titulo" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+              <select value={productType} onChange={(e) => setProductType(e.target.value as "EBOOK" | "VIDEO_COURSE" | "OTHER")} className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm">
+                <option value="EBOOK">E-book</option>
+                <option value="VIDEO_COURSE">Videoaulas</option>
+                <option value="OTHER">Outro</option>
+              </select>
+              <textarea value={productDescription} onChange={(e) => setProductDescription(e.target.value)} placeholder="Descrição (opcional)" rows={2} className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+              <input value={caktoProductId} onChange={(e) => setCaktoProductId(e.target.value)} placeholder="Cakto product id (opcional)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+              <input value={offerId} onChange={(e) => setOfferId(e.target.value)} placeholder="Cakto offer id (opcional)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+              <input value={checkoutUrl} onChange={(e) => setCheckoutUrl(e.target.value)} placeholder="Checkout URL (opcional)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+              <button type="button" disabled={loading} onClick={createProduct} className="w-full rounded-lg bg-[var(--ink)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                Criar produto
+              </button>
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
+            <h2 className="font-semibold">Configurar produto existente</h2>
+            <div className="mt-3 space-y-2">
+              {products.length === 0 ? (
+                <p className="text-sm text-[var(--carvao)]/70">Sem produtos ainda.</p>
+              ) : (
+                products.map((entry) => (
+                  <article key={entry.id} className="rounded-lg border border-[var(--dourado)]/35 bg-white px-3 py-2">
+                    <p className="font-semibold">{entry.title}</p>
+                    <p className="text-xs text-[var(--carvao)]/70">{entry.slug} • {entry.type} • {entry.active ? "ATIVO" : "INATIVO"}</p>
+                    <p className="text-xs text-[var(--carvao)]/70">
+                      {entry.modulesCount} módulos • {entry.lessonsCount} aulas • {entry.hasEbookFile ? "PDF OK" : "Sem PDF"}
+                    </p>
+                    <Link href={`/admin/produtos/${entry.id}`} className="mt-2 inline-block rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white">
+                      Abrir construtor
+                    </Link>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {activeTab === "users" ? (
+        <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
+          <h2 className="font-semibold">Controle de usuarios</h2>
+          <div className="mt-3 grid gap-4 xl:grid-cols-2">
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold">Criar usuário</h3>
               <input value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Nome" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
               <input value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="E-mail" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
               <input value={userPassword} onChange={(e) => setUserPassword(e.target.value)} placeholder="Senha inicial" type="password" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
@@ -235,80 +299,46 @@ export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
                 Criar usuario
               </button>
             </div>
-          </section>
-
-          <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
-            <h2 className="font-semibold">Criar produto</h2>
-            <div className="mt-3 space-y-2">
-              <input value={productSlug} onChange={(e) => setProductSlug(e.target.value)} placeholder="Slug (ex: foco)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-              <input value={productTitle} onChange={(e) => setProductTitle(e.target.value)} placeholder="Titulo" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-              <input value={caktoProductId} onChange={(e) => setCaktoProductId(e.target.value)} placeholder="Cakto product id (opcional)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-              <input value={offerId} onChange={(e) => setOfferId(e.target.value)} placeholder="Cakto offer id (opcional)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-              <input value={checkoutUrl} onChange={(e) => setCheckoutUrl(e.target.value)} placeholder="Checkout URL (opcional)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-              <button type="button" disabled={loading} onClick={createProduct} className="w-full rounded-lg bg-[var(--ink)] px-3 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                Criar produto
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {activeTab === "users" ? (
-        <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
-          <h2 className="font-semibold">Controle de usuarios</h2>
-          <div className="mt-3 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-[var(--carvao)]/75">
-                  <th className="px-2 py-1">Usuario</th>
-                  <th className="px-2 py-1">Role</th>
-                  <th className="px-2 py-1">Status</th>
-                  <th className="px-2 py-1">Compras</th>
-                  <th className="px-2 py-1">Acoes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((entry) => (
-                  <tr key={entry.id} className="border-t border-[var(--dourado)]/25">
-                    <td className="px-2 py-2">
-                      <p className="font-medium">{entry.name ?? "Sem nome"}</p>
-                      <p className="text-xs text-[var(--carvao)]/75">{entry.email}</p>
-                    </td>
-                    <td className="px-2 py-2">{entry.role}</td>
-                    <td className="px-2 py-2">{entry.active ? "ATIVO" : "INATIVO"}</td>
-                    <td className="px-2 py-2">{entry.purchasesCount}</td>
-                    <td className="px-2 py-2">
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateUser(entry.id, { active: !entry.active })}
-                          className="rounded-md border px-2 py-1 text-xs"
-                        >
-                          {entry.active ? "Inativar" : "Reativar"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateUser(entry.id, { role: entry.role === "ADMIN" ? "USER" : "ADMIN" })}
-                          className="rounded-md border px-2 py-1 text-xs"
-                        >
-                          {entry.role === "ADMIN" ? "Remover admin" : "Tornar admin"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => sendResetPassword(entry.id)}
-                          className="rounded-md border px-2 py-1 text-xs"
-                        >
-                          Enviar redefinicao
-                        </button>
-                        <button type="button" onClick={() => deleteUser(entry.id)} className="rounded-md border px-2 py-1 text-xs text-red-700">
-                          Excluir
-                        </button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[var(--carvao)]/75">
+                    <th className="px-2 py-1">Usuario</th>
+                    <th className="px-2 py-1">Role</th>
+                    <th className="px-2 py-1">Status</th>
+                    <th className="px-2 py-1">Acoes</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {users.map((entry) => (
+                    <tr key={entry.id} className="border-t border-[var(--dourado)]/25">
+                      <td className="px-2 py-2">
+                        <p className="font-medium">{entry.name ?? "Sem nome"}</p>
+                        <p className="text-xs text-[var(--carvao)]/75">{entry.email}</p>
+                      </td>
+                      <td className="px-2 py-2">{entry.role}</td>
+                      <td className="px-2 py-2">{entry.active ? "ATIVO" : "INATIVO"}</td>
+                      <td className="px-2 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => updateUser(entry.id, { active: !entry.active })} className="rounded-md border px-2 py-1 text-xs">
+                            {entry.active ? "Inativar" : "Reativar"}
+                          </button>
+                          <button type="button" onClick={() => updateUser(entry.id, { role: entry.role === "ADMIN" ? "USER" : "ADMIN" })} className="rounded-md border px-2 py-1 text-xs">
+                            {entry.role === "ADMIN" ? "Remover admin" : "Tornar admin"}
+                          </button>
+                          <button type="button" onClick={() => sendResetPassword(entry.id)} className="rounded-md border px-2 py-1 text-xs">
+                            Reset senha
+                          </button>
+                          <button type="button" onClick={() => deleteUser(entry.id)} className="rounded-md border px-2 py-1 text-xs text-red-700">
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       ) : null}
@@ -341,12 +371,7 @@ export function AdminConsole({ openTickets, users }: AdminConsoleProps) {
                     placeholder="Resposta humana"
                     className="mt-2 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
                   />
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => sendReply(ticket.id)}
-                    className="mt-2 rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
-                  >
+                  <button type="button" disabled={loading} onClick={() => sendReply(ticket.id)} className="mt-2 rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60">
                     Enviar resposta
                   </button>
                 </article>

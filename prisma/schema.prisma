@@ -32,6 +32,12 @@ enum SupportMessageAuthor {
   SYSTEM
 }
 
+enum ProductType {
+  EBOOK
+  VIDEO_COURSE
+  OTHER
+}
+
 model User {
   id               String               @id @default(cuid())
   name             String?
@@ -54,14 +60,27 @@ model Product {
   id             String     @id @default(cuid())
   slug           String     @unique
   title          String
+  description    String?
+  type           ProductType @default(EBOOK)
   caktoProductId String?    @unique
   active         Boolean    @default(true)
   createdAt      DateTime   @default(now())
   offers         Offer[]
   purchases      Purchase[]
   modules        Module[]
+  ebookAsset     ProductEbookAsset?
   ebookStates    EbookReaderState[]
   ebookHighlights EbookHighlight[]
+}
+
+model ProductEbookAsset {
+  id         String   @id @default(cuid())
+  productId  String   @unique
+  filePath   String
+  fileName   String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Offer {

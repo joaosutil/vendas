@@ -60,6 +60,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     recentPurchases,
     periodPurchases,
     users,
+    products,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.user.count({ where: { active: true } }),
@@ -98,6 +99,19 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         active: true,
         createdAt: true,
         _count: { select: { purchases: true } },
+      },
+      take: 200,
+    }),
+    prisma.product.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        type: true,
+        active: true,
+        ebookAsset: { select: { id: true } },
+        modules: { select: { id: true, lessons: { select: { id: true } } } },
       },
       take: 200,
     }),
@@ -481,6 +495,16 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           active: entry.active,
           purchasesCount: entry._count.purchases,
           createdAt: entry.createdAt.toISOString(),
+        }))}
+        products={products.map((product) => ({
+          id: product.id,
+          slug: product.slug,
+          title: product.title,
+          type: product.type,
+          active: product.active,
+          modulesCount: product.modules.length,
+          lessonsCount: product.modules.reduce((acc, module) => acc + module.lessons.length, 0),
+          hasEbookFile: Boolean(product.ebookAsset),
         }))}
       />
     </section>
