@@ -218,6 +218,31 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
   }, []);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isMeta = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+
+      if (isMeta && (key === "p" || key === "s" || key === "u")) {
+        event.preventDefault();
+      }
+
+      if (event.key === "PrintScreen") {
+        event.preventDefault();
+      }
+    };
+
+    const onDragStart = (event: DragEvent) => event.preventDefault();
+
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("dragstart", onDragStart);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("dragstart", onDragStart);
+    };
+  }, []);
+
+  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {

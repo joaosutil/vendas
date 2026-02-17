@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/require-user";
+import { isAdminUser } from "@/lib/is-admin-user";
 
 export default async function MembersLayout({
   children,
@@ -7,6 +8,7 @@ export default async function MembersLayout({
   children: React.ReactNode;
 }>) {
   const user = await requireUser();
+  const canAccessAdmin = isAdminUser(user);
 
   return (
     <main className="min-h-screen">
@@ -17,6 +19,7 @@ export default async function MembersLayout({
             <Link href="/app">Dashboard</Link>
             <Link href="/app/conta">Conta</Link>
             <Link href="/app/suporte">Suporte</Link>
+            {canAccessAdmin ? <Link href="/admin">Admin</Link> : null}
           </nav>
           <p className="text-sm text-[var(--carvao)]/80">{user.email}</p>
         </div>

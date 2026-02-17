@@ -3,12 +3,32 @@ curl -i -X POST https://marketingdigi.shop/api/webhooks/cakto \
   --data "{
     \"event\":\"purchase_approved\",
     \"secret\":\"$CAKTO_WEBHOOK_SECRET\",
-    \"id\":\"evt_mail_test_3\",
+    \"id\":\"evt_mail_test_6\",
     \"data\":{
-      \"id\":\"order_mail_test_3\",
+      \"id\":\"order_mail_test_6\",
       \"status\":\"paid\",
-      \"customer\":{\"email\":\"jvsuti2005@gmail.com\",\"name\":\"Teste\"},
+      \"customer\":{\"email\":\"douglasraymundo@gmail.com\",\"name\":\"Douglas\"},
       \"product\":{\"id\":\"ansiedade-prod-1\"},
       \"offer\":{\"id\":\"offer-1\"}
     }
   }"
+
+  DATABASE_URL="postgresql://postgres.ssefeonkppxqfbrgbwxh:jvsutil1112@aws-0-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
+DIRECT_URL="postgresql://postgres.ssefeonkppxqfbrgbwxh:jvsutil1112@aws-0-us-west-2.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&sslmode=require"
+
+APP_BASE_URL="https://marketingdigi.shop"
+APP_JWT_SECRET="troque-por-um-segredo-forte"
+
+CAKTO_WEBHOOK_SECRET="8f8ff8f6-70ec-44a9-bacc-e52c5e19dd7a"
+CAKTO_ANSIEDADE_PRODUCT_ID=""
+NEXT_PUBLIC_CAKTO_CHECKOUT_URL="https://pay.cakto.com.br/bfzr9ba_766032"
+RESEND_API_KEY="re_eqXPuFSD_NrZK5ziEncyLytNwN8nbvUCm"
+EMAIL_FROM="Marketing digital top <no-reply@marketingdigi.shop>"
+
+ANSIEDADE_PDF_FILE_PATH="assets/ansiedade.pdf"
+NEXT_PUBLIC_ANSIEDADE_PDF_TOTAL_PAGES="30"
+NEXT_PUBLIC_ANSIEDADE_MODULE_PAGES="1,4,7,10,13,16"
+NEXT_PUBLIC_ANSIEDADE_BONUS1_URL=""
+NEXT_PUBLIC_ANSIEDADE_BONUS2_URL=""
+NEXT_PUBLIC_ANSIEDADE_BONUS3_URL=""
+ADMIN_EMAILS="jvsuti2005@gmail.com"
