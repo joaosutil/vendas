@@ -10,17 +10,20 @@ export default async function DashboardPage() {
     include: { product: true },
     orderBy: { createdAt: "desc" },
   });
+  const uniquePurchases = Array.from(
+    new Map(purchases.map((purchase) => [purchase.productId, purchase])).values(),
+  );
 
   return (
     <section>
       <h1 className="text-3xl font-bold">Bem-vindo(a)!</h1>
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {purchases.length === 0 ? (
+        {uniquePurchases.length === 0 ? (
           <div className="rounded-2xl border border-white/60 bg-white/70 p-5 md:col-span-3">
             Nenhum produto ativo encontrado para sua conta.
           </div>
         ) : (
-          purchases.map((purchase) => (
+          uniquePurchases.map((purchase) => (
             <article key={purchase.id} className="rounded-2xl border border-white/60 bg-white/70 p-5 shadow-sm">
               <h2 className="font-semibold">{purchase.product.title}</h2>
               <p className="mt-1 text-sm text-[var(--carvao)]/75">Progresso inicial: 0%</p>
