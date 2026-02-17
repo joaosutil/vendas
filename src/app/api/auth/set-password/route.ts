@@ -3,14 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/password";
 import { hashSetupToken } from "@/lib/password-setup";
 import { setSessionCookie } from "@/lib/auth";
+import { getAppBaseUrl } from "@/lib/app-base-url";
 
 export async function POST(request: Request) {
+  const appBaseUrl = getAppBaseUrl(request);
   const formData = await request.formData();
   const token = String(formData.get("token") || "").trim();
   const password = String(formData.get("password") || "");
 
   if (!token || password.length < 8) {
-    return NextResponse.redirect(new URL("/definir-senha?error=invalid", request.url));
+    return NextResponse.redirect(new URL("/definir-senha?error=invalid", appBaseUrl));
   }
 
   const tokenHash = hashSetupToken(token);
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
   });
 
   if (!setup || setup.usedAt || setup.expiresAt < new Date()) {
-    return NextResponse.redirect(new URL("/definir-senha?error=expired", request.url));
+    return NextResponse.redirect(new URL("/definir-senha?error=expired", appBaseUrl));
   }
 
   const passwordHash = await hashPassword(password);
@@ -37,5 +39,5 @@ export async function POST(request: Request) {
   ]);
 
   await setSessionCookie({ userId: setup.user.id, email: setup.user.email });
-  return NextResponse.redirect(new URL("/app", request.url));
+  return NextResponse.redirect(new URL("/app", appBaseUrl));
 }
