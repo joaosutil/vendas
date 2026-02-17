@@ -50,72 +50,96 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const to = parseDate(params.to, now);
   to.setHours(23, 59, 59, 999);
 
-  const [
-    usersCount,
-    activeUsersCount,
-    productsCount,
-    activePurchasesCount,
-    refundedCount,
-    openTickets,
-    recentPurchases,
-    periodPurchases,
-    users,
-    products,
-  ] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.count({ where: { active: true } }),
-    prisma.product.count(),
-    prisma.purchase.count({ where: { status: "ACTIVE" } }),
-    prisma.purchase.count({ where: { status: { in: ["REFUNDED", "CHARGEBACK"] } } }),
-    prisma.supportTicket.findMany({
-      where: { status: { in: ["OPEN", "HUMAN_QUEUE", "WAITING_CUSTOMER"] } },
-      orderBy: { lastMessageAt: "desc" },
-      take: 20,
-      include: { user: { select: { email: true } } },
-    }),
-    prisma.purchase.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      include: {
-        user: { select: { email: true } },
-        product: { select: { title: true } },
-      },
-    }),
-    prisma.purchase.findMany({
-      where: { createdAt: { gte: from, lte: to } },
-      include: {
-        product: { select: { title: true } },
-        offer: { select: { caktoOfferId: true, checkoutUrl: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.user.findMany({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        createdAt: true,
-        _count: { select: { purchases: true } },
-      },
-      take: 200,
-    }),
-    prisma.product.findMany({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        type: true,
-        active: true,
-        ebookAsset: { select: { id: true } },
-        modules: { select: { id: true, lessons: { select: { id: true } } } },
-      },
-      take: 200,
-    }),
-  ]);
+  let usersCount = 0;
+  let activeUsersCount = 0;
+  let productsCount = 0;
+  let activePurchasesCount = 0;
+  let refundedCount = 0;
+  let openTickets: Awaited<ReturnType<typeof prisma.supportTicket.findMany>> = [];
+  let recentPurchases: Awaited<ReturnType<typeof prisma.purchase.findMany>> = [];
+  let periodPurchases: Awaited<ReturnType<typeof prisma.purchase.findMany>> = [];
+  let users: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
+  let products: Awaited<ReturnType<typeof prisma.product.findMany>> = [];
+
+  try {
+    [
+      usersCount,
+      activeUsersCount,
+      productsCount,
+      activePurchasesCount,
+      refundedCount,
+      openTickets,
+      recentPurchases,
+      periodPurchases,
+      users,
+      products,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.user.count({ where: { active: true } }),
+      prisma.product.count(),
+      prisma.purchase.count({ where: { status: "ACTIVE" } }),
+      prisma.purchase.count({ where: { status: { in: ["REFUNDED", "CHARGEBACK"] } } }),
+      prisma.supportTicket.findMany({
+        where: { status: { in: ["OPEN", "HUMAN_QUEUE", "WAITING_CUSTOMER"] } },
+        orderBy: { lastMessageAt: "desc" },
+        take: 20,
+        include: { user: { select: { email: true } } },
+      }),
+      prisma.purchase.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        include: {
+          user: { select: { email: true } },
+          product: { select: { title: true } },
+        },
+      }),
+      prisma.purchase.findMany({
+        where: { createdAt: { gte: from, lte: to } },
+        include: {
+          product: { select: { title: true } },
+          offer: { select: { caktoOfferId: true, checkoutUrl: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.user.findMany({
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          createdAt: true,
+          _count: { select: { purchases: true } },
+        },
+        take: 200,
+      }),
+      prisma.product.findMany({
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          type: true,
+          active: true,
+          ebookAsset: { select: { id: true } },
+          modules: { select: { id: true, lessons: { select: { id: true } } } },
+        },
+        take: 200,
+      }),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return (
+      <section className="rounded-2xl border border-red-300/60 bg-red-50/80 p-5 text-red-900">
+        <h1 className="text-2xl font-bold">Falha ao carregar o Admin</h1>
+        <p className="mt-2 text-sm">
+          O banco parece desatualizado para a versão atual do painel. Aplique as migrations pendentes e reinicie a aplicação.
+        </p>
+        <pre className="mt-3 overflow-x-auto rounded-lg bg-red-100 p-3 text-xs">{message}</pre>
+      </section>
+    );
+  }
 
   const salesCount = periodPurchases.length;
   const refundedInPeriod = periodPurchases.filter((entry) => entry.status !== "ACTIVE").length;

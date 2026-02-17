@@ -60,6 +60,48 @@ body {
     linear-gradient(135deg, #f6f0e3 0%, #f2e9d9 45%, #f6f0e3 100%);
 }
 
+/* Dark mode readability fixes for existing Tailwind utility usage */
+:root[data-reader-theme="dark"] .bg-white\/75,
+:root[data-reader-theme="dark"] .bg-white\/70,
+:root[data-reader-theme="dark"] .bg-white\/80,
+:root[data-reader-theme="dark"] .bg-white\/85,
+:root[data-reader-theme="dark"] .bg-white\/90 {
+  background-color: rgba(21, 30, 44, 0.86) !important;
+}
+
+:root[data-reader-theme="dark"] .bg-\[var\(--creme\)\]\/55,
+:root[data-reader-theme="dark"] .bg-\[var\(--creme\)\]\/70 {
+  background-color: rgba(18, 26, 38, 0.92) !important;
+}
+
+:root[data-reader-theme="dark"] .border-white\/50,
+:root[data-reader-theme="dark"] .border-white\/60,
+:root[data-reader-theme="dark"] .border-\[var\(--dourado\)\]\/25,
+:root[data-reader-theme="dark"] .border-\[var\(--dourado\)\]\/30,
+:root[data-reader-theme="dark"] .border-\[var\(--dourado\)\]\/35,
+:root[data-reader-theme="dark"] .border-\[var\(--dourado\)\]\/40,
+:root[data-reader-theme="dark"] .border-\[var\(--dourado\)\]\/45 {
+  border-color: rgba(110, 130, 160, 0.45) !important;
+}
+
+:root[data-reader-theme="dark"] .text-\[var\(--carvao\)\]\/70,
+:root[data-reader-theme="dark"] .text-\[var\(--carvao\)\]\/75,
+:root[data-reader-theme="dark"] .text-\[var\(--carvao\)\]\/80 {
+  color: rgba(226, 232, 240, 0.88) !important;
+}
+
+:root[data-reader-theme="dark"] input,
+:root[data-reader-theme="dark"] textarea,
+:root[data-reader-theme="dark"] select {
+  background-color: rgba(16, 22, 33, 0.9) !important;
+  color: #e5e7eb !important;
+  border-color: rgba(107, 114, 128, 0.55) !important;
+}
+
+:root[data-reader-theme="dark"] a {
+  color: #bfdbfe;
+}
+
 h1,
 h2,
 h3,
