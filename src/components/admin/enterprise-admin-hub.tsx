@@ -127,6 +127,10 @@ export function EnterpriseAdminHub({
   products,
 }: EnterpriseAdminHubProps) {
   const [tab, setTab] = useState<"finance" | "growth" | "operations">("finance");
+  const [aiInsightsState, setAiInsightsState] = useState(aiInsights);
+  const [creativeIdeasState, setCreativeIdeasState] = useState(creativeIdeas);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const dailySeries = useMemo(
     () =>
@@ -163,6 +167,60 @@ export function EnterpriseAdminHub({
       })),
     [funnelRows],
   );
+
+  async function generateWithOpenRouter() {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const response = await fetch("/api/admin/ai-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: fromValue,
+          to: toValue,
+          stats: {
+            grossCents: stats.grossCents,
+            netCents: stats.netCents,
+            profitCents: stats.profitCents,
+            refundRate: stats.refundRate,
+            retentionRate: stats.retentionRate,
+            marginRate: stats.marginRate,
+            growthRate: stats.growthRate,
+            avgGrossTicket: stats.avgGrossTicket,
+            avgNetTicket: stats.avgNetTicket,
+            salesCount: stats.salesCount,
+            keptSalesCount: stats.keptSalesCount,
+          },
+          paymentMethodRows: paymentMethodRows.map((row) => ({
+            method: row.method,
+            share: row.share,
+            avgNetCents: row.avgNetCents,
+          })),
+          topProducts,
+          statusDistribution,
+        }),
+      });
+
+      const data = (await response.json()) as {
+        ok: boolean;
+        error?: string;
+        insights?: string[];
+        creativeIdeas?: string[];
+      };
+
+      if (!response.ok || !data.ok) {
+        setAiError(data.error ?? "Falha ao gerar recomendações com OpenRouter.");
+        return;
+      }
+
+      setAiInsightsState((data.insights ?? []).length ? data.insights ?? [] : aiInsights);
+      setCreativeIdeasState((data.creativeIdeas ?? []).length ? data.creativeIdeas ?? [] : creativeIdeas);
+    } catch {
+      setAiError("Erro de comunicação com o endpoint de IA.");
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   return (
     <section className="space-y-4">
@@ -313,9 +371,22 @@ export function EnterpriseAdminHub({
 
           <div className="grid gap-4 xl:grid-cols-2">
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Análises automáticas orientadas por dados</h2>
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-semibold">Análises automáticas orientadas por dados</h2>
+                <button
+                  type="button"
+                  onClick={generateWithOpenRouter}
+                  disabled={aiLoading}
+                  className="rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                >
+                  {aiLoading ? "Gerando..." : "Gerar com OpenRouter"}
+                </button>
+              </div>
+              {aiError ? (
+                <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">{aiError}</p>
+              ) : null}
               <ul className="mt-3 space-y-2 text-sm">
-                {aiInsights.map((item, idx) => (
+                {aiInsightsState.map((item, idx) => (
                   <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
                 ))}
               </ul>
@@ -323,7 +394,7 @@ export function EnterpriseAdminHub({
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
               <h2 className="font-semibold">Sugestões de criativos e distribuição</h2>
               <ul className="mt-3 space-y-2 text-sm">
-                {creativeIdeas.map((item, idx) => (
+                {creativeIdeasState.map((item, idx) => (
                   <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
                 ))}
               </ul>
