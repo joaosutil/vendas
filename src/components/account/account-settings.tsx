@@ -14,6 +14,7 @@ type AccountSettingsProps = {
 export function AccountSettings({ user }: AccountSettingsProps) {
   const [name, setName] = useState(user.name ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl ?? "");
+  const [avatarUrlInput, setAvatarUrlInput] = useState(user.avatarUrl ?? "");
   const [alertsEnabled, setAlertsEnabled] = useState(user.alertsEnabled);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -28,6 +29,71 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     return URL.createObjectURL(avatarFile);
   }, [avatarFile]);
 
+  function isValidAvatarUrl(value: string) {
+    const normalized = value.trim();
+    if (!normalized) return true;
+    if (normalized.startsWith("/uploads/avatars/")) return true;
+    try {
+      const parsed = new URL(normalized);
+      return parsed.protocol === "https:" || parsed.protocol === "http:";
+    } catch {
+      return false;
+    }
+  }
+
+  async function parseApiResponse(response: Response) {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      return response.json().catch(() => ({}));
+    }
+    const text = await response.text().catch(() => "");
+    return { ok: false, error: text || "Resposta inválida do servidor." };
+  }
+
+  async function optimizeAvatarFile(file: File) {
+    if (file.size <= 900 * 1024) return file;
+    const imageUrl = URL.createObjectURL(file);
+    try {
+      const img = document.createElement("img");
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Falha ao carregar imagem"));
+        img.src = imageUrl;
+      });
+
+      const maxWidth = 1024;
+      const scale = Math.min(1, maxWidth / Math.max(img.width, 1));
+      const width = Math.max(1, Math.round(img.width * scale));
+      const height = Math.max(1, Math.round(img.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) return file;
+      context.drawImage(img, 0, 0, width, height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((result) => resolve(result), "image/webp", 0.82);
+      });
+      if (!blob) return file;
+      if (blob.size > 950 * 1024) {
+        const secondBlob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob((result) => resolve(result), "image/jpeg", 0.72);
+        });
+        if (secondBlob) {
+          return new File([secondBlob], `${file.name.replace(/\.[^.]+$/, "")}-optimized.jpg`, {
+            type: "image/jpeg",
+          });
+        }
+      }
+
+      return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}-optimized.webp`, { type: "image/webp" });
+    } finally {
+      URL.revokeObjectURL(imageUrl);
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
@@ -39,16 +105,21 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     setFeedback(null);
     setError(null);
     try {
+      if (!isValidAvatarUrl(avatarUrlInput)) {
+        setError("URL de foto inválida. Use um link http(s) válido.");
+        return;
+      }
       const response = await fetch("/api/members/account", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, avatarUrl, alertsEnabled }),
+        body: JSON.stringify({ name, avatarUrl: avatarUrlInput.trim(), alertsEnabled }),
       });
-      const data = (await response.json()) as { ok: boolean; error?: string };
+      const data = (await parseApiResponse(response)) as { ok?: boolean; error?: string };
       if (!response.ok || !data.ok) {
         setError(data.error ?? "Falha ao salvar perfil.");
         return;
       }
+      setAvatarUrl(avatarUrlInput.trim());
       setFeedback("Perfil atualizado com sucesso.");
     } finally {
       setLoading(false);
@@ -61,18 +132,28 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     setFeedback(null);
     setError(null);
     try {
+      const optimized = await optimizeAvatarFile(avatarFile);
+      if (optimized.size > 1024 * 1024) {
+        setError("Imagem muito grande para upload. Use uma imagem menor que 1MB.");
+        return;
+      }
       const formData = new FormData();
-      formData.set("avatar", avatarFile);
+      formData.set("avatar", optimized);
       const response = await fetch("/api/members/account/avatar", {
         method: "POST",
         body: formData,
       });
-      const data = (await response.json()) as { ok: boolean; error?: string; avatarUrl?: string };
+      const data = (await parseApiResponse(response)) as { ok?: boolean; error?: string; avatarUrl?: string };
       if (!response.ok || !data.ok || !data.avatarUrl) {
+        if (response.status === 413) {
+          setError("Imagem excedeu o limite de upload do servidor. Escolha uma imagem menor.");
+          return;
+        }
         setError(data.error ?? "Falha ao enviar imagem.");
         return;
       }
       setAvatarUrl(data.avatarUrl);
+      setAvatarUrlInput(data.avatarUrl);
       setAvatarFile(null);
       setFeedback("Avatar enviado com sucesso.");
     } finally {
@@ -90,7 +171,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
       });
-      const data = (await response.json()) as { ok: boolean; error?: string };
+      const data = (await parseApiResponse(response)) as { ok?: boolean; error?: string };
       if (!response.ok || !data.ok) {
         setError(data.error ?? "Falha ao alterar senha.");
         return;
@@ -120,11 +201,8 @@ export function AccountSettings({ user }: AccountSettingsProps) {
         <article className="rounded-2xl border border-white/60 bg-white/75 p-4">
           <h2 className="text-lg font-semibold">Perfil</h2>
           <div className="mt-3 flex items-center gap-3">
-            <img
-              src={avatarUrl || "/brand-icon.png"}
-              alt="Avatar"
-              className="h-16 w-16 rounded-full border border-[var(--dourado)]/40 object-cover"
-            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={avatarUrl || "/brand-icon.png"} alt="Avatar" className="h-16 w-16 rounded-full border border-[var(--dourado)]/40 object-cover" />
             <div className="text-sm">
               <p className="font-semibold">{name || "Sem nome"}</p>
               <p className="text-[var(--carvao)]/75">{user.email}</p>
@@ -138,8 +216,8 @@ export function AccountSettings({ user }: AccountSettingsProps) {
             className="mt-3 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
           />
           <input
-            value={avatarUrl}
-            onChange={(event) => setAvatarUrl(event.target.value)}
+            value={avatarUrlInput}
+            onChange={(event) => setAvatarUrlInput(event.target.value)}
             placeholder="URL da foto (https://...)"
             className="mt-2 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
           />
@@ -164,14 +242,27 @@ export function AccountSettings({ user }: AccountSettingsProps) {
 
         <article className="rounded-2xl border border-white/60 bg-white/75 p-4">
           <h2 className="text-lg font-semibold">Foto por arquivo</h2>
-          <p className="mt-1 text-sm text-[var(--carvao)]/75">Selecione uma imagem e clique em &quot;Enviar foto&quot;.</p>
+          <p className="mt-1 text-sm text-[var(--carvao)]/75">Clique na área abaixo para escolher o arquivo da foto e depois clique em &quot;Enviar foto&quot;.</p>
           <div className="mt-3 rounded-xl border border-[var(--dourado)]/40 bg-white p-3">
-            <label className="block text-xs font-semibold text-[var(--carvao)]/75">Arquivo (JPG, PNG, WEBP • até 3MB)</label>
+            <label className="block text-xs font-semibold text-[var(--carvao)]/75">Arquivo (JPG, PNG, WEBP • recomendado até 1MB)</label>
             <input
+              id="avatar-file-input"
               type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
               onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
-              className="mt-2 block w-full text-sm"
+              className="sr-only"
+            />
+            <label
+              htmlFor="avatar-file-input"
+              className="mt-2 flex min-h-24 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-[var(--dourado)]/50 bg-[var(--creme)]/55 px-4 text-center text-sm font-semibold text-[var(--carvao)]/85 transition hover:bg-[var(--creme)]/80"
+            >
+              {avatarFile ? "Arquivo selecionado. Clique para trocar." : "Clique aqui para escolher o arquivo da foto"}
+            </label>
+            <input
+              value={avatarUrlInput}
+              onChange={(event) => setAvatarUrlInput(event.target.value)}
+              placeholder="Ou cole aqui a URL da imagem"
+              className="mt-2 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
             />
             {avatarFile ? (
               <div className="mt-3 rounded-lg border border-[var(--dourado)]/30 bg-[var(--creme)]/65 p-2">

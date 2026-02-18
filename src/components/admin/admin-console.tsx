@@ -321,7 +321,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
                     <p className="text-xs text-[var(--carvao)]/70">
                       {entry.modulesCount} módulos • {entry.lessonsCount} aulas • {entry.hasEbookFile ? "PDF OK" : "Sem PDF"}
                     </p>
-                    <Link href={`/admin/produtos/${entry.id}`} className="mt-2 inline-block rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white">
+                    <Link href={`/admin/produtos/${entry.id}`} prefetch className="mt-2 inline-block rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white">
                       Abrir construtor
                     </Link>
                   </article>

@@ -15,8 +15,8 @@ export default async function AdminLayout({
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <p className="font-semibold">Painel Admin • Marketing Digital Top</p>
           <nav className="flex gap-4 text-sm">
-            <Link href="/admin">Dashboard</Link>
-            <Link href="/app">Area de membros</Link>
+            <Link href="/admin" prefetch>Dashboard</Link>
+            <Link href="/app" prefetch>Area de membros</Link>
           </nav>
           <div className="flex items-center gap-3">
             <ThemeModeToggle />
