@@ -205,7 +205,7 @@ Também inclua, nas ideias criativas:
       insights: fallback.insights,
       creativeIdeas: fallback.creativeIdeas,
       provider: "local-fallback",
-      warning: "Resposta da IA em formato inválido",
+      warning: "OpenRouter respondeu fora do padrão e aplicamos fallback analítico local.",
     });
   }
 
