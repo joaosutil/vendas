@@ -89,6 +89,10 @@ function buildHeuristicInsights(data: z.infer<typeof payloadSchema>) {
   return { insights, creativeIdeas };
 }
 
+function toBrlNumber(cents: number) {
+  return Number((cents / 100).toFixed(2));
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false }, { status: 403 });
@@ -110,6 +114,24 @@ export async function POST(request: Request) {
 
   const model = process.env.OPENROUTER_MODEL?.trim() || "openrouter/auto";
   const data = parsed.data;
+  const statsForAi = {
+    grossBRL: toBrlNumber(data.stats.grossCents),
+    netBRL: toBrlNumber(data.stats.netCents),
+    profitBRL: toBrlNumber(data.stats.profitCents),
+    refundRate: data.stats.refundRate,
+    retentionRate: data.stats.retentionRate,
+    marginRate: data.stats.marginRate,
+    growthRate: data.stats.growthRate,
+    avgGrossTicketBRL: toBrlNumber(data.stats.avgGrossTicket),
+    avgNetTicketBRL: toBrlNumber(data.stats.avgNetTicket),
+    salesCount: data.stats.salesCount,
+    keptSalesCount: data.stats.keptSalesCount,
+  };
+  const paymentForAi = data.paymentMethodRows.map((row) => ({
+    method: row.method,
+    share: row.share,
+    avgNetBRL: toBrlNumber(row.avgNetCents),
+  }));
 
   const prompt = `
 Você é um diretor de growth e financeiro para infoprodutos.
@@ -123,10 +145,12 @@ Regras:
 - Nada genérico, usar os dados recebidos.
 - Frases curtas, acionáveis e com prioridade.
 - 4 insights e 4 ideias criativas.
+- Todos os valores já estão em REAIS (não em centavos).
+- Sempre escreva valores monetários com "R$" e vírgula decimal (ex: R$ 19,90), nunca "R$1990".
 
 Período: ${data.from ?? "N/A"} até ${data.to ?? "N/A"}
-Stats: ${JSON.stringify(data.stats)}
-Métodos: ${JSON.stringify(data.paymentMethodRows)}
+Stats (em reais): ${JSON.stringify(statsForAi)}
+Métodos (em reais): ${JSON.stringify(paymentForAi)}
 Top Produtos: ${JSON.stringify(data.topProducts)}
 Status: ${JSON.stringify(data.statusDistribution)}
 `;

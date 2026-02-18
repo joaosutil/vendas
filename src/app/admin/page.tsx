@@ -22,6 +22,10 @@ function normalizeMethod(method: string | null | undefined) {
   return raw;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 type AdminPageProps = {
   searchParams?: Promise<{ from?: string; to?: string }>;
 };
@@ -282,13 +286,24 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const half = Math.max(1, Math.floor(dailyFinance.length / 2));
   const firstHalfSales = dailyFinance.slice(0, half).reduce((acc, item) => acc + item.sales, 0);
   const secondHalfSales = dailyFinance.slice(half).reduce((acc, item) => acc + item.sales, 0);
-  const growthRate = firstHalfSales ? Math.round(((secondHalfSales - firstHalfSales) / firstHalfSales) * 100) : 0;
+  const hasReliableTrendBase = salesCount >= 6 && dailyFinance.length >= 4;
+  let growthRate = 0;
+  if (hasReliableTrendBase) {
+    if (firstHalfSales === 0 && secondHalfSales > 0) {
+      growthRate = 100;
+    } else if (firstHalfSales > 0) {
+      growthRate = Math.round(((secondHalfSales - firstHalfSales) / firstHalfSales) * 100);
+    }
+    growthRate = clamp(growthRate, -90, 300);
+  }
 
   const aiInsights: string[] = [
     `Margem líquida: ${marginRate}%. ${marginRate < 70 ? "Alerta de eficiência: reduzir CAC e taxa média deve ser prioridade." : "Eficiência saudável para escalar tráfego com segurança."}`,
     `Retenção pós-venda: ${retentionRate}% (refund+chargeback: ${refundRate}%). ${refundRate > 12 ? "Risco de churn alto: ajuste promessa da oferta e onboarding das primeiras 24h." : "Risco de churn controlado no período."}`,
     `Ticket médio bruto ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(avgGrossTicket / 100)} e líquido ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(avgNetTicket / 100)}.`,
-    `Tendência de vendas no período: ${growthRate >= 0 ? "+" : ""}${growthRate}% entre primeira e segunda metade.`,
+    hasReliableTrendBase
+      ? `Tendência de vendas no período: ${growthRate >= 0 ? "+" : ""}${growthRate}% entre primeira e segunda metade.`
+      : "Tendência: base de dados ainda pequena para inferência confiável.",
     topPayment
       ? `Método dominante: ${topPayment.method} (${topPayment.share}% das vendas), com líquido médio de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(topPayment.avgNetCents / 100)}.`
       : "Sem volume suficiente para determinar método dominante.",
