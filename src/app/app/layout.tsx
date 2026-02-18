@@ -24,6 +24,12 @@ export default async function MembersLayout({
           </nav>
           <div className="flex items-center gap-3">
             <ThemeModeToggle />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={user.avatarUrl || "/brand-icon.png"}
+              alt="Foto de perfil"
+              className="h-8 w-8 rounded-full border border-[var(--surface-border)] object-cover"
+            />
             <p className="text-sm text-[var(--carvao)]/80">{user.email}</p>
           </div>
         </div>
