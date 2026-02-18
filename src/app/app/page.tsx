@@ -101,6 +101,7 @@ export default async function DashboardPage() {
               </div>
               <Link
                 href={`/app/produtos/${purchase.product.slug}`}
+                prefetch
                 className="mt-4 inline-block rounded-lg bg-[var(--ink)] px-3 py-2 text-sm font-semibold text-white"
               >
                 Continuar de onde parei

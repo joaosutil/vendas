@@ -372,11 +372,11 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
   }
 
   return (
-    <section className="space-y-4 select-none" onContextMenu={(event) => event.preventDefault()}>
+    <section className="ebook-html-root space-y-4 select-none" onContextMenu={(event) => event.preventDefault()}>
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl border border-[var(--dourado)]/45 bg-gradient-to-br from-[#fff5df] via-[#fffdf8] to-[#f4e6d1] p-5"
+        className="ebook-hero-card relative overflow-hidden rounded-2xl border border-[var(--dourado)]/45 bg-gradient-to-br from-[#fff5df] via-[#fffdf8] to-[#f4e6d1] p-5"
       >
         <div className="pointer-events-none absolute -top-8 -right-10 h-28 w-28 rounded-full bg-[var(--dourado)]/50 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-10 -left-12 h-32 w-32 rounded-full bg-[var(--areia)]/45 blur-2xl" />
@@ -401,7 +401,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
         Progresso {overallProgress}% • Scroll {scrollProgress}% • Seções {readChapters.length}/{chaptersView.length} • Módulos {completedModules.length}/{modules.length}
       </p>
 
-      <div className="rounded-xl border border-[var(--dourado)]/40 bg-white/75 p-3 text-sm">
+      <div className="ebook-info-card rounded-xl border border-[var(--dourado)]/40 bg-white/75 p-3 text-sm">
         <p className="font-semibold">Leitura assistida</p>
         <p className="mt-1 text-[var(--carvao)]/80">Com o marca-texto ligado, selecione apenas as palavras/linhas desejadas para marcar.</p>
       </div>
@@ -409,7 +409,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
       <div className="grid gap-4 xl:grid-cols-[1.8fr_0.9fr]">
         <div
           ref={viewerRef}
-          className={`rounded-2xl border border-white/60 bg-[#fffdf8] p-3 shadow-sm md:p-5 ${
+          className={`ebook-reader-shell rounded-2xl border border-white/60 bg-[#fffdf8] p-3 shadow-sm md:p-5 ${
             isFullscreen ? "h-screen overflow-hidden bg-[#fffdf8]" : ""
           }`}
         >
@@ -434,7 +434,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
                   aria-label={`Cor ${color.key}`}
                 />
               ))}
-              <div className="flex items-center rounded-md border border-[var(--ink)]/25 bg-white">
+              <div className="ebook-control-card flex items-center rounded-md border border-[var(--ink)]/25 bg-white">
                 <button
                   type="button"
                   onClick={() => setFontScale((prev) => Math.max(0.85, Number((prev - 0.1).toFixed(2))))}
@@ -459,7 +459,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
               </div>
               <a
                 href={`/api/members/ebooks/${slug}/download`}
-                className="rounded-md border border-[var(--ink)]/25 bg-white px-3 py-1 text-xs font-semibold text-[var(--ink)]"
+                className="ebook-control-card rounded-md border border-[var(--ink)]/25 bg-white px-3 py-1 text-xs font-semibold text-[var(--ink)]"
               >
                 Baixar PDF identificado
               </a>
@@ -475,7 +475,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
             className={`${isFullscreen ? "h-[92vh]" : "h-[76vh]"} overflow-y-auto pr-1 md:pr-4 ${highlightMode ? "select-text" : "select-none"}`}
           >
             <div className="mx-auto max-w-4xl space-y-7 pb-16">
-              <article className="relative overflow-hidden rounded-xl border border-[var(--dourado)]/50 bg-white px-4 py-5 md:px-8 md:py-7 shadow-sm">
+              <article className="ebook-cover-card relative overflow-hidden rounded-xl border border-[var(--dourado)]/50 bg-white px-4 py-5 md:px-8 md:py-7 shadow-sm">
                 <div className="absolute -top-8 -right-8 h-20 w-20 rounded-full bg-[var(--dourado)]/30 blur-2xl" />
                 <Image
                   src="/ebook-cover-art.png"
@@ -500,7 +500,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
                     chapterRefs.current[chapterIndex] = el;
                   }}
                   data-chapter-index={chapterIndex}
-                  className={`rounded-xl border px-4 py-5 md:px-8 md:py-7 transition min-h-[72vh] ${
+                  className={`ebook-chapter-card rounded-xl border px-4 py-5 md:px-8 md:py-7 transition min-h-[72vh] ${
                     activeChapter === chapterIndex
                       ? "border-[var(--ink)]/45 bg-gradient-to-br from-[var(--dourado)]/20 to-white shadow-sm"
                       : "border-[var(--dourado)]/35 bg-white/90"
@@ -530,7 +530,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
         </div>
 
         <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
-          <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+          <div className="ebook-sidebar-card rounded-2xl border border-white/60 bg-white/75 p-4">
             <h3 className="font-semibold">Sumário</h3>
             <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
               {chaptersView.map((chapter, index) => (
@@ -548,7 +548,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+          <div className="ebook-sidebar-card rounded-2xl border border-white/60 bg-white/75 p-4">
             <h3 className="font-semibold">Módulos (automático por leitura)</h3>
             <div className="mt-3 space-y-2">
               {modules.map((moduleTitle, idx) => (
@@ -566,7 +566,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+          <div className="ebook-sidebar-card rounded-2xl border border-white/60 bg-white/75 p-4">
             <h3 className="font-semibold">Destaques</h3>
             <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
               {highlights.length === 0 ? (

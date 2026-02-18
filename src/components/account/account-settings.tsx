@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type AccountSettingsProps = {
   user: {
@@ -20,8 +20,19 @@ export function AccountSettings({ user }: AccountSettingsProps) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const avatarPreviewUrl = useMemo(() => {
+    if (!avatarFile) return null;
+    return URL.createObjectURL(avatarFile);
+  }, [avatarFile]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    };
+  }, [avatarPreviewUrl]);
 
   async function saveProfile() {
     setLoading(true);
@@ -46,7 +57,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
 
   async function uploadAvatar() {
     if (!avatarFile) return;
-    setLoading(true);
+    setUploadingAvatar(true);
     setFeedback(null);
     setError(null);
     try {
@@ -65,7 +76,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
       setAvatarFile(null);
       setFeedback("Avatar enviado com sucesso.");
     } finally {
-      setLoading(false);
+      setUploadingAvatar(false);
     }
   }
 
@@ -153,23 +164,50 @@ export function AccountSettings({ user }: AccountSettingsProps) {
 
         <article className="rounded-2xl border border-white/60 bg-white/75 p-4">
           <h2 className="text-lg font-semibold">Foto por arquivo</h2>
-          <p className="mt-1 text-sm text-[var(--carvao)]/75">
-            Formatos: JPG, PNG, WEBP (máximo 3MB).
-          </p>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
-            className="mt-3 block w-full text-sm"
-          />
-          <button
-            type="button"
-            onClick={uploadAvatar}
-            disabled={loading || !avatarFile}
-            className="mt-3 rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            Enviar foto
-          </button>
+          <p className="mt-1 text-sm text-[var(--carvao)]/75">Selecione uma imagem e clique em &quot;Enviar foto&quot;.</p>
+          <div className="mt-3 rounded-xl border border-[var(--dourado)]/40 bg-white p-3">
+            <label className="block text-xs font-semibold text-[var(--carvao)]/75">Arquivo (JPG, PNG, WEBP • até 3MB)</label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              onChange={(event) => setAvatarFile(event.target.files?.[0] ?? null)}
+              className="mt-2 block w-full text-sm"
+            />
+            {avatarFile ? (
+              <div className="mt-3 rounded-lg border border-[var(--dourado)]/30 bg-[var(--creme)]/65 p-2">
+                <p className="text-xs">
+                  <strong>Selecionado:</strong> {avatarFile.name}
+                </p>
+                <p className="text-xs text-[var(--carvao)]/75">
+                  Tamanho: {(avatarFile.size / (1024 * 1024)).toFixed(2)} MB
+                </p>
+                {avatarPreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarPreviewUrl} alt="Previa do avatar" className="mt-2 h-20 w-20 rounded-full border border-[var(--dourado)]/35 object-cover" />
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-[var(--carvao)]/70">Nenhum arquivo selecionado.</p>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={uploadAvatar}
+                disabled={uploadingAvatar || !avatarFile}
+                className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {uploadingAvatar ? "Enviando..." : "Enviar foto"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setAvatarFile(null)}
+                disabled={uploadingAvatar || !avatarFile}
+                className="rounded-lg border border-[var(--ink)]/30 bg-white px-4 py-2 text-sm font-semibold text-[var(--ink)] disabled:opacity-60"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
         </article>
       </div>
 

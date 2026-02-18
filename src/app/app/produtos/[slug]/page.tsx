@@ -28,21 +28,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
       status: "ACTIVE",
       product: { slug },
     },
-    include: { product: { include: { ebookAsset: true } } },
-  });
-
-  if (!purchase) notFound();
-
-  const productModules = await prisma.module.findMany({
-    where: { productId: purchase.productId },
-    orderBy: { orderIndex: "asc" },
     include: {
-      lessons: {
-        orderBy: { orderIndex: "asc" },
-        select: { id: true, title: true, description: true, contentUrl: true },
+      product: {
+        include: {
+          ebookAsset: true,
+          modules: {
+            orderBy: { orderIndex: "asc" },
+            include: {
+              lessons: {
+                orderBy: { orderIndex: "asc" },
+                select: { id: true, title: true, description: true, contentUrl: true },
+              },
+            },
+          },
+        },
       },
     },
   });
+
+  if (!purchase) notFound();
+  const productModules = purchase.product.modules;
 
   if (purchase.product.type === "VIDEO_COURSE") {
     return (

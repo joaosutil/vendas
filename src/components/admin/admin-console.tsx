@@ -48,8 +48,47 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
   const [checkoutUrl, setCheckoutUrl] = useState("");
   const [offerId, setOfferId] = useState("");
   const [adminReply, setAdminReply] = useState<Record<string, string>>({});
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(openTickets[0]?.id ?? null);
+  const [ticketMessages, setTicketMessages] = useState<
+    Array<{
+      id: string;
+      authorType: "USER" | "AI" | "ADMIN" | "SYSTEM";
+      content: string;
+      createdAt: string;
+      sender?: { id: string; name: string | null; email: string } | null;
+    }>
+  >([]);
+  const [selectedTicketMeta, setSelectedTicketMeta] = useState<{ id: string; subject: string; status: string } | null>(null);
+  const [ticketLoading, setTicketLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  async function loadTicket(ticketId: string) {
+    setTicketLoading(true);
+    try {
+      const response = await fetch(`/api/support/tickets/${ticketId}/messages`, { cache: "no-store" });
+      if (!response.ok) {
+        setFeedback("Falha ao carregar conversa do ticket.");
+        setTicketMessages([]);
+        setSelectedTicketMeta(null);
+        return;
+      }
+      const data = (await response.json()) as {
+        ticket?: { id: string; subject: string; status: string };
+        messages?: Array<{
+          id: string;
+          authorType: "USER" | "AI" | "ADMIN" | "SYSTEM";
+          content: string;
+          createdAt: string;
+          sender?: { id: string; name: string | null; email: string } | null;
+        }>;
+      };
+      setSelectedTicketMeta(data.ticket ?? null);
+      setTicketMessages(data.messages ?? []);
+    } finally {
+      setTicketLoading(false);
+    }
+  }
 
   async function createUser() {
     setLoading(true);
@@ -132,6 +171,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
       }
       setAdminReply((prev) => ({ ...prev, [ticketId]: "" }));
       setFeedback("Resposta enviada.");
+      await loadTicket(ticketId);
       router.refresh();
     } finally {
       setLoading(false);
@@ -152,6 +192,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
         return;
       }
       setFeedback("Status atualizado.");
+      await loadTicket(ticketId);
       router.refresh();
     } finally {
       setLoading(false);
@@ -355,36 +396,99 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
       {activeTab === "support" ? (
         <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
           <h2 className="font-semibold">Tickets de suporte</h2>
-          <div className="mt-3 space-y-3">
+          <div className="mt-3 grid gap-4 xl:grid-cols-[0.95fr_1.35fr]">
             {openTickets.length === 0 ? (
               <p className="text-sm text-[var(--carvao)]/70">Nenhum ticket aberto no momento.</p>
             ) : (
-              openTickets.map((ticket) => (
-                <article key={ticket.id} className="rounded-xl border border-[var(--dourado)]/45 bg-white p-3">
-                  <p className="font-semibold">{ticket.subject}</p>
-                  <p className="mt-1 text-xs text-[var(--carvao)]/80">
-                    {ticket.userEmail} • {ticket.status}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button type="button" onClick={() => updateTicketStatus(ticket.id, "HUMAN_QUEUE")} className="rounded-md border px-2 py-1 text-xs">
-                      Marcar fila humana
-                    </button>
-                    <button type="button" onClick={() => updateTicketStatus(ticket.id, "RESOLVED")} className="rounded-md border px-2 py-1 text-xs">
-                      Resolver
-                    </button>
-                  </div>
-                  <textarea
-                    value={adminReply[ticket.id] ?? ""}
-                    onChange={(event) => setAdminReply((prev) => ({ ...prev, [ticket.id]: event.target.value }))}
-                    rows={2}
-                    placeholder="Resposta humana"
-                    className="mt-2 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
-                  />
-                  <button type="button" disabled={loading} onClick={() => sendReply(ticket.id)} className="mt-2 rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60">
-                    Enviar resposta
-                  </button>
-                </article>
-              ))
+              <>
+                <div className="space-y-3">
+                  {openTickets.map((ticket) => {
+                    const selected = selectedTicketId === ticket.id;
+                    return (
+                      <article key={ticket.id} className={`rounded-xl border p-3 ${selected ? "border-[var(--ink)]/40 bg-[var(--ink)]/5" : "border-[var(--dourado)]/45 bg-white"}`}>
+                        <p className="font-semibold">{ticket.subject}</p>
+                        <p className="mt-1 text-xs text-[var(--carvao)]/80">{ticket.userEmail}</p>
+                        <p className="mt-1 text-xs text-[var(--carvao)]/70">
+                          {ticket.status} • {new Date(ticket.lastMessageAt).toLocaleString("pt-BR")}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setSelectedTicketId(ticket.id);
+                            await loadTicket(ticket.id);
+                          }}
+                          className="mt-2 rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white"
+                        >
+                          Abrir ticket
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-xl border border-[var(--dourado)]/45 bg-white p-3">
+                  {!selectedTicketId ? (
+                    <p className="text-sm text-[var(--carvao)]/70">Selecione um ticket para abrir a conversa.</p>
+                  ) : (
+                    <>
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--dourado)]/35 pb-2">
+                        <div>
+                          <p className="font-semibold">{selectedTicketMeta?.subject ?? "Ticket"}</p>
+                          <p className="text-xs text-[var(--carvao)]/75">Status: {selectedTicketMeta?.status ?? "..."}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => updateTicketStatus(selectedTicketId, "HUMAN_QUEUE")} className="rounded-md border px-2 py-1 text-xs">
+                            Marcar fila humana
+                          </button>
+                          <button type="button" onClick={() => updateTicketStatus(selectedTicketId, "WAITING_CUSTOMER")} className="rounded-md border px-2 py-1 text-xs">
+                            Aguardando cliente
+                          </button>
+                          <button type="button" onClick={() => updateTicketStatus(selectedTicketId, "RESOLVED")} className="rounded-md border px-2 py-1 text-xs">
+                            Resolver
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="max-h-80 space-y-2 overflow-y-auto rounded-lg border border-[var(--dourado)]/35 bg-[var(--creme)]/55 p-2">
+                        {ticketLoading ? (
+                          <p className="text-sm text-[var(--carvao)]/70">Carregando conversa...</p>
+                        ) : ticketMessages.length === 0 ? (
+                          <p className="text-sm text-[var(--carvao)]/70">Sem mensagens neste ticket.</p>
+                        ) : (
+                          ticketMessages.map((message) => (
+                            <div key={message.id} className="rounded-md border border-[var(--dourado)]/30 bg-white px-3 py-2">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-xs font-semibold">
+                                  {message.authorType}
+                                  {message.sender?.email ? ` • ${message.sender.email}` : ""}
+                                </p>
+                                <p className="text-[11px] text-[var(--carvao)]/70">{new Date(message.createdAt).toLocaleString("pt-BR")}</p>
+                              </div>
+                              <p className="mt-1 whitespace-pre-wrap text-sm">{message.content}</p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <textarea
+                        value={adminReply[selectedTicketId] ?? ""}
+                        onChange={(event) => setAdminReply((prev) => ({ ...prev, [selectedTicketId]: event.target.value }))}
+                        rows={3}
+                        placeholder="Digite a resposta do admin..."
+                        className="mt-3 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => sendReply(selectedTicketId)}
+                        className="mt-2 rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                      >
+                        Enviar resposta
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </section>

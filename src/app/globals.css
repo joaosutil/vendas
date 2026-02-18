@@ -132,6 +132,49 @@ body {
   color: #93c5fd !important;
 }
 
+/* Dedicated dark-theme polish for ebook reader area */
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-hero-card {
+  background: linear-gradient(140deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 32, 56, 0.92) 45%, rgba(14, 24, 43, 0.95) 100%) !important;
+  border-color: rgba(96, 124, 170, 0.55) !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-hero-card h1 {
+  color: #f8fbff !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-hero-card p {
+  color: rgba(224, 237, 255, 0.84) !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-info-card,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-reader-shell,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-sidebar-card {
+  background: rgba(16, 24, 40, 0.92) !important;
+  border-color: rgba(99, 119, 155, 0.5) !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-control-card,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-cover-card,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-chapter-card {
+  background: rgba(14, 22, 36, 0.95) !important;
+  border-color: rgba(103, 124, 163, 0.5) !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-chapter-card h2,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-cover-card h2 {
+  color: #f8fbff !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-chapter-card p,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-cover-card p,
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-sidebar-card p {
+  color: rgba(226, 232, 240, 0.9) !important;
+}
+
+:root[data-reader-theme="dark"] .ebook-html-root .ebook-sidebar-card button {
+  border-color: rgba(115, 138, 181, 0.45) !important;
+}
+
 h1,
 h2,
 h3,
