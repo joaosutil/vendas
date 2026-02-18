@@ -4,6 +4,7 @@ import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/current-user";
+import { AVATAR_STORAGE_DIR, extractAvatarFileName, getAvatarApiUrl, getAvatarFilePath } from "@/lib/avatar-storage";
 
 const MAX_SIZE = 3 * 1024 * 1024;
 const allowedExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
@@ -40,8 +41,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const uploadsDir = path.join(process.cwd(), "public", "uploads", "avatars");
-  await mkdir(uploadsDir, { recursive: true });
+  await mkdir(AVATAR_STORAGE_DIR, { recursive: true });
 
   const oldUser = await prisma.user.findUnique({
     where: { id: user.id },
@@ -49,19 +49,21 @@ export async function POST(request: Request) {
   });
 
   const fileName = `${user.id}-${randomUUID()}${ext}`;
-  const filePath = path.join(uploadsDir, fileName);
+  const filePath = getAvatarFilePath(fileName);
   const bytes = Buffer.from(await typedFile.arrayBuffer());
   await writeFile(filePath, bytes);
 
-  const avatarUrl = `/uploads/avatars/${fileName}`;
+  const avatarUrl = getAvatarApiUrl(fileName);
   await prisma.user.update({
     where: { id: user.id },
     data: { avatarUrl },
   });
 
-  if (oldUser?.avatarUrl?.startsWith("/uploads/avatars/")) {
-    const oldAbsolute = path.join(process.cwd(), "public", oldUser.avatarUrl);
-    unlink(oldAbsolute).catch(() => null);
+  const oldFileName = extractAvatarFileName(oldUser?.avatarUrl);
+  if (oldFileName) {
+    unlink(getAvatarFilePath(oldFileName)).catch(() => null);
+    const legacyPublicPath = path.join(process.cwd(), "public", "uploads", "avatars", oldFileName);
+    unlink(legacyPublicPath).catch(() => null);
   }
 
   return NextResponse.json({ ok: true, avatarUrl });

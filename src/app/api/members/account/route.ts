@@ -12,6 +12,7 @@ const updateAccountSchema = z.object({
 function isValidAvatarUrl(value: string) {
   if (!value) return true;
   if (value.startsWith("/uploads/avatars/")) return true;
+  if (value.startsWith("/api/members/account/avatar/")) return true;
   try {
     const parsed = new URL(value);
     return parsed.protocol === "https:" || parsed.protocol === "http:";

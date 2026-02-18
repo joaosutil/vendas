@@ -28,6 +28,11 @@ body {
   font-family: var(--font-body), sans-serif;
 }
 
+*:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 :root[data-reader-theme="dark"] {
   --background: #0b1220;
   --foreground: #e6edf8;
@@ -241,6 +246,11 @@ h4 {
 
 .spot-glow {
   box-shadow: 0 0 60px rgba(13, 17, 28, 0.25);
+}
+
+.reader-chapter-virtualized {
+  content-visibility: auto;
+  contain-intrinsic-size: 1200px;
 }
 
 @keyframes meshShift {

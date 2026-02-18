@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type AdminConsoleProps = {
@@ -10,6 +10,7 @@ type AdminConsoleProps = {
     subject: string;
     status: string;
     userEmail: string;
+    hasUnread: boolean;
     lastMessageAt: string;
   }>;
   users: Array<{
@@ -62,6 +63,64 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
   const [ticketLoading, setTicketLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userQuery, setUserQuery] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [userRoleFilter, setUserRoleFilter] = useState<"ALL" | "USER" | "ADMIN">("ALL");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [usersPage, setUsersPage] = useState(1);
+  const [productsPage, setProductsPage] = useState(1);
+  const pageSize = 20;
+
+  useEffect(() => {
+    const raw = localStorage.getItem("admin_user_filters_v1");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as { query?: string; status?: "ALL" | "ACTIVE" | "INACTIVE"; role?: "ALL" | "USER" | "ADMIN" };
+      setUserQuery(parsed.query ?? "");
+      setUserStatusFilter(parsed.status ?? "ALL");
+      setUserRoleFilter(parsed.role ?? "ALL");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "admin_user_filters_v1",
+      JSON.stringify({ query: userQuery, status: userStatusFilter, role: userRoleFilter }),
+    );
+  }, [userQuery, userRoleFilter, userStatusFilter]);
+
+  useEffect(() => {
+    setUsersPage(1);
+  }, [userQuery, userRoleFilter, userStatusFilter]);
+
+  const filteredUsers = useMemo(() => {
+    const normalized = userQuery.trim().toLowerCase();
+    return users.filter((entry) => {
+      const statusOk =
+        userStatusFilter === "ALL" ? true : userStatusFilter === "ACTIVE" ? entry.active : !entry.active;
+      const roleOk = userRoleFilter === "ALL" ? true : entry.role === userRoleFilter;
+      const searchOk =
+        !normalized ||
+        entry.email.toLowerCase().includes(normalized) ||
+        (entry.name ?? "").toLowerCase().includes(normalized);
+      return statusOk && roleOk && searchOk;
+    });
+  }, [userQuery, userRoleFilter, userStatusFilter, users]);
+
+  const allFilteredSelected =
+    filteredUsers.length > 0 && filteredUsers.every((entry) => selectedUserIds.includes(entry.id));
+  const paginatedUsers = useMemo(() => {
+    const start = (usersPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, usersPage]);
+  const usersTotalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+  const paginatedProducts = useMemo(() => {
+    const start = (productsPage - 1) * pageSize;
+    return products.slice(start, start + pageSize);
+  }, [products, productsPage]);
+  const productsTotalPages = Math.max(1, Math.ceil(products.length / pageSize));
 
   async function loadTicket(ticketId: string) {
     setTicketLoading(true);
@@ -256,6 +315,28 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
     }
   }
 
+  async function bulkSetActive(active: boolean) {
+    if (!selectedUserIds.length) return;
+    setLoading(true);
+    setFeedback(null);
+    try {
+      await Promise.all(
+        selectedUserIds.map((id) =>
+          fetch(`/api/admin/users/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ active }),
+          }),
+        ),
+      );
+      setFeedback(active ? "Usuários reativados." : "Usuários inativados.");
+      setSelectedUserIds([]);
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {feedback ? <div className="rounded-xl border border-white/60 bg-white/70 p-3 text-sm">{feedback}</div> : null}
@@ -314,7 +395,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
               {products.length === 0 ? (
                 <p className="text-sm text-[var(--carvao)]/70">Sem produtos ainda.</p>
               ) : (
-                products.map((entry) => (
+                paginatedProducts.map((entry) => (
                   <article key={entry.id} className="rounded-lg border border-[var(--dourado)]/35 bg-white px-3 py-2">
                     <p className="font-semibold">{entry.title}</p>
                     <p className="text-xs text-[var(--carvao)]/70">{entry.slug} • {entry.type} • {entry.active ? "ATIVO" : "INATIVO"}</p>
@@ -327,6 +408,29 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
                   </article>
                 ))
               )}
+              {products.length > pageSize ? (
+                <div className="mt-2 flex items-center justify-end gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setProductsPage((p) => Math.max(1, p - 1))}
+                    disabled={productsPage <= 1}
+                    className="rounded border px-2 py-1 disabled:opacity-50"
+                  >
+                    Anterior
+                  </button>
+                  <span>
+                    Página {productsPage} de {productsTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setProductsPage((p) => Math.min(productsTotalPages, p + 1))}
+                    disabled={productsPage >= productsTotalPages}
+                    className="rounded border px-2 py-1 disabled:opacity-50"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              ) : null}
             </div>
           </section>
         </div>
@@ -350,9 +454,58 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
               </button>
             </div>
             <div className="overflow-x-auto">
+              <div className="mb-3 grid gap-2 md:grid-cols-4">
+                <input
+                  value={userQuery}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  placeholder="Buscar por e-mail ou nome"
+                  className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm md:col-span-2"
+                />
+                <select
+                  value={userStatusFilter}
+                  onChange={(e) => setUserStatusFilter(e.target.value as "ALL" | "ACTIVE" | "INACTIVE")}
+                  className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="ALL">Todos status</option>
+                  <option value="ACTIVE">Ativos</option>
+                  <option value="INACTIVE">Inativos</option>
+                </select>
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value as "ALL" | "USER" | "ADMIN")}
+                  className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                >
+                  <option value="ALL">Todas roles</option>
+                  <option value="USER">USER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </select>
+              </div>
+
+              <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedUserIds((prev) =>
+                      allFilteredSelected ? prev.filter((id) => !filteredUsers.some((u) => u.id === id)) : [...new Set([...prev, ...filteredUsers.map((u) => u.id)])],
+                    )
+                  }
+                  className="rounded-md border px-2 py-1"
+                >
+                  {allFilteredSelected ? "Desmarcar listados" : "Selecionar listados"}
+                </button>
+                <button type="button" onClick={() => void bulkSetActive(false)} disabled={loading || selectedUserIds.length === 0} className="rounded-md border px-2 py-1 disabled:opacity-60">
+                  Inativar selecionados
+                </button>
+                <button type="button" onClick={() => void bulkSetActive(true)} disabled={loading || selectedUserIds.length === 0} className="rounded-md border px-2 py-1 disabled:opacity-60">
+                  Reativar selecionados
+                </button>
+                <span className="text-[var(--carvao)]/70">Selecionados: {selectedUserIds.length}</span>
+              </div>
+
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-[var(--carvao)]/75">
+                    <th className="px-2 py-1">Sel.</th>
                     <th className="px-2 py-1">Usuario</th>
                     <th className="px-2 py-1">Role</th>
                     <th className="px-2 py-1">Status</th>
@@ -360,8 +513,19 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((entry) => (
+                  {paginatedUsers.map((entry) => (
                     <tr key={entry.id} className="border-t border-[var(--dourado)]/25">
+                      <td className="px-2 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedUserIds.includes(entry.id)}
+                          onChange={(event) =>
+                            setSelectedUserIds((prev) =>
+                              event.target.checked ? [...new Set([...prev, entry.id])] : prev.filter((id) => id !== entry.id),
+                            )
+                          }
+                        />
+                      </td>
                       <td className="px-2 py-2">
                         <p className="font-medium">{entry.name ?? "Sem nome"}</p>
                         <p className="text-xs text-[var(--carvao)]/75">{entry.email}</p>
@@ -370,7 +534,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
                       <td className="px-2 py-2">{entry.active ? "ATIVO" : "INATIVO"}</td>
                       <td className="px-2 py-2">
                         <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => updateUser(entry.id, { active: !entry.active })} className="rounded-md border px-2 py-1 text-xs">
+                          <button type="button" onClick={() => updateUser(entry.id, { active: !entry.active })} className="rounded-md border px-2 py-1 text-xs" aria-label={`Alterar status de ${entry.email}`}>
                             {entry.active ? "Inativar" : "Reativar"}
                           </button>
                           <button type="button" onClick={() => updateUser(entry.id, { role: entry.role === "ADMIN" ? "USER" : "ADMIN" })} className="rounded-md border px-2 py-1 text-xs">
@@ -388,6 +552,29 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
                   ))}
                 </tbody>
               </table>
+              {filteredUsers.length > pageSize ? (
+                <div className="mt-2 flex items-center justify-end gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setUsersPage((p) => Math.max(1, p - 1))}
+                    disabled={usersPage <= 1}
+                    className="rounded border px-2 py-1 disabled:opacity-50"
+                  >
+                    Anterior
+                  </button>
+                  <span>
+                    Página {usersPage} de {usersTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setUsersPage((p) => Math.min(usersTotalPages, p + 1))}
+                    disabled={usersPage >= usersTotalPages}
+                    className="rounded border px-2 py-1 disabled:opacity-50"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
@@ -406,7 +593,12 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
                     const selected = selectedTicketId === ticket.id;
                     return (
                       <article key={ticket.id} className={`rounded-xl border p-3 ${selected ? "border-[var(--ink)]/40 bg-[var(--ink)]/5" : "border-[var(--dourado)]/45 bg-white"}`}>
-                        <p className="font-semibold">{ticket.subject}</p>
+                        <p className="font-semibold">
+                          {ticket.subject}{" "}
+                          {ticket.hasUnread ? (
+                            <span className="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">NOVO</span>
+                          ) : null}
+                        </p>
                         <p className="mt-1 text-xs text-[var(--carvao)]/80">{ticket.userEmail}</p>
                         <p className="mt-1 text-xs text-[var(--carvao)]/70">
                           {ticket.status} • {new Date(ticket.lastMessageAt).toLocaleString("pt-BR")}

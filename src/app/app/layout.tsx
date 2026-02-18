@@ -20,10 +20,10 @@ export default async function MembersLayout({
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <p className="font-semibold">Marketing Digital Top</p>
           <nav className="flex gap-4 text-sm">
-            <Link href="/app" prefetch>Dashboard</Link>
-            <Link href="/app/conta" prefetch>Conta</Link>
-            <Link href="/app/suporte" prefetch>Suporte</Link>
-            {canAccessAdmin ? <Link href="/admin" prefetch>Admin</Link> : null}
+            <Link href="/app" prefetch aria-label="Ir para Dashboard">Dashboard</Link>
+            <Link href="/app/conta" prefetch aria-label="Ir para Conta">Conta</Link>
+            <Link href="/app/suporte" prefetch aria-label="Ir para Suporte">Suporte</Link>
+            {canAccessAdmin ? <Link href="/admin" prefetch aria-label="Ir para Admin">Admin</Link> : null}
           </nav>
           <div className="flex items-center gap-3">
             <ThemeModeToggle />

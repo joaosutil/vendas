@@ -1,4 +1,5 @@
 import type { ProductType, PurchaseStatus, SupportTicketStatus, UserRole } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { EnterpriseAdminHub } from "@/components/admin/enterprise-admin-hub";
 
@@ -61,6 +62,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     status: SupportTicketStatus;
     lastMessageAt: Date;
     user: { email: string };
+    hasUnread: boolean;
   }> = [];
   let periodPurchases: Array<{
     id: string;
@@ -92,64 +94,120 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     modules: Array<{ id: string; lessons: Array<{ id: string }> }>;
   }> = [];
 
+  const getCachedAdminData = unstable_cache(
+    async (fromIso: string, toIso: string) => {
+      const start = new Date(`${fromIso}T00:00:00.000Z`);
+      const end = new Date(`${toIso}T23:59:59.999Z`);
+
+      const [
+        usersCountCached,
+        activeUsersCountCached,
+        productsCountCached,
+        activePurchasesCountCached,
+        refundedCountCached,
+        openTicketsRaw,
+        periodPurchasesCached,
+        usersCached,
+        productsCached,
+      ] = await Promise.all([
+        prisma.user.count(),
+        prisma.user.count({ where: { active: true } }),
+        prisma.product.count(),
+        prisma.purchase.count({ where: { status: "ACTIVE" } }),
+        prisma.purchase.count({ where: { status: { in: ["REFUNDED", "CHARGEBACK"] } } }),
+        prisma.supportTicket.findMany({
+          where: { status: { in: ["OPEN", "HUMAN_QUEUE", "WAITING_CUSTOMER"] } },
+          orderBy: { lastMessageAt: "desc" },
+          take: 20,
+          include: { user: { select: { email: true } } },
+        }),
+        prisma.purchase.findMany({
+          where: { createdAt: { gte: start, lte: end } },
+          include: {
+            product: { select: { title: true } },
+            offer: { select: { caktoOfferId: true, checkoutUrl: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        }),
+        prisma.user.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            active: true,
+            createdAt: true,
+            _count: { select: { purchases: true } },
+          },
+          take: 200,
+        }),
+        prisma.product.findMany({
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            type: true,
+            active: true,
+            ebookAsset: { select: { id: true } },
+            modules: { select: { id: true, lessons: { select: { id: true } } } },
+          },
+          take: 200,
+        }),
+      ]);
+
+      const openTicketIds = openTicketsRaw.map((ticket) => ticket.id);
+      const latestMessages = openTicketIds.length
+        ? await prisma.supportMessage.findMany({
+            where: { ticketId: { in: openTicketIds } },
+            orderBy: { createdAt: "desc" },
+            select: { ticketId: true, authorType: true, createdAt: true },
+          })
+        : [];
+
+      const latestByTicket = new Map<string, { authorType: string; createdAt: Date }>();
+      for (const message of latestMessages) {
+        if (!latestByTicket.has(message.ticketId)) {
+          latestByTicket.set(message.ticketId, { authorType: message.authorType, createdAt: message.createdAt });
+        }
+      }
+
+      const openTicketsCached = openTicketsRaw.map((ticket) => {
+        const latest = latestByTicket.get(ticket.id);
+        return {
+          ...ticket,
+          hasUnread: Boolean(latest && latest.authorType !== "ADMIN"),
+        };
+      });
+
+      return {
+        usersCountCached,
+        activeUsersCountCached,
+        productsCountCached,
+        activePurchasesCountCached,
+        refundedCountCached,
+        openTicketsCached,
+        periodPurchasesCached,
+        usersCached,
+        productsCached,
+      };
+    },
+    ["admin-dashboard-data-v2"],
+    { revalidate: 20 },
+  );
+
   try {
-    [
-      usersCount,
-      activeUsersCount,
-      productsCount,
-      activePurchasesCount,
-      refundedCount,
-      openTickets,
-      periodPurchases,
-      users,
-      products,
-    ] = await Promise.all([
-      prisma.user.count(),
-      prisma.user.count({ where: { active: true } }),
-      prisma.product.count(),
-      prisma.purchase.count({ where: { status: "ACTIVE" } }),
-      prisma.purchase.count({ where: { status: { in: ["REFUNDED", "CHARGEBACK"] } } }),
-      prisma.supportTicket.findMany({
-        where: { status: { in: ["OPEN", "HUMAN_QUEUE", "WAITING_CUSTOMER"] } },
-        orderBy: { lastMessageAt: "desc" },
-        take: 20,
-        include: { user: { select: { email: true } } },
-      }),
-      prisma.purchase.findMany({
-        where: { createdAt: { gte: from, lte: to } },
-        include: {
-          product: { select: { title: true } },
-          offer: { select: { caktoOfferId: true, checkoutUrl: true } },
-        },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-          active: true,
-          createdAt: true,
-          _count: { select: { purchases: true } },
-        },
-        take: 200,
-      }),
-      prisma.product.findMany({
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          slug: true,
-          title: true,
-          type: true,
-          active: true,
-          ebookAsset: { select: { id: true } },
-          modules: { select: { id: true, lessons: { select: { id: true } } } },
-        },
-        take: 200,
-      }),
-    ]);
+    const cached = await getCachedAdminData(from.toISOString().slice(0, 10), to.toISOString().slice(0, 10));
+    usersCount = cached.usersCountCached;
+    activeUsersCount = cached.activeUsersCountCached;
+    productsCount = cached.productsCountCached;
+    activePurchasesCount = cached.activePurchasesCountCached;
+    refundedCount = cached.refundedCountCached;
+    openTickets = cached.openTicketsCached;
+    periodPurchases = cached.periodPurchasesCached;
+    users = cached.usersCached;
+    products = cached.productsCached;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro desconhecido";
     return (
@@ -360,6 +418,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         subject: ticket.subject,
         status: ticket.status,
         userEmail: ticket.user.email,
+        hasUnread: ticket.hasUnread,
         lastMessageAt: ticket.lastMessageAt.toISOString(),
       }))}
       users={users.map((entry) => ({

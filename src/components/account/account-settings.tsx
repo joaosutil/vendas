@@ -24,6 +24,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const avatarPreviewUrl = useMemo(() => {
@@ -35,6 +36,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
     const normalized = value.trim();
     if (!normalized) return true;
     if (normalized.startsWith("/uploads/avatars/")) return true;
+    if (normalized.startsWith("/api/members/account/avatar/")) return true;
     try {
       const parsed = new URL(normalized);
       return parsed.protocol === "https:" || parsed.protocol === "http:";
@@ -132,6 +134,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
   async function uploadAvatar() {
     if (!avatarFile) return;
     setUploadingAvatar(true);
+    setUploadProgress(0);
     setFeedback(null);
     setError(null);
     try {
@@ -142,26 +145,45 @@ export function AccountSettings({ user }: AccountSettingsProps) {
       }
       const formData = new FormData();
       formData.set("avatar", optimized);
-      const response = await fetch("/api/members/account/avatar", {
-        method: "POST",
-        body: formData,
+      const data = await new Promise<{ ok?: boolean; error?: string; avatarUrl?: string; status: number }>((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/members/account/avatar");
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            setUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+          }
+        };
+        xhr.onload = () => {
+          let parsed: { ok?: boolean; error?: string; avatarUrl?: string } = {};
+          try {
+            parsed = JSON.parse(xhr.responseText) as { ok?: boolean; error?: string; avatarUrl?: string };
+          } catch {
+            parsed = { ok: false, error: xhr.responseText || "Resposta inválida do servidor." };
+          }
+          resolve({ ...parsed, status: xhr.status });
+        };
+        xhr.onerror = () => resolve({ ok: false, error: "Falha de rede no upload.", status: xhr.status || 0 });
+        xhr.send(formData);
       });
-      const data = (await parseApiResponse(response)) as { ok?: boolean; error?: string; avatarUrl?: string };
-      if (!response.ok || !data.ok || !data.avatarUrl) {
-        if (response.status === 413) {
+
+      if (!data.ok || !data.avatarUrl) {
+        if (data.status === 413) {
           setError("Imagem excedeu o limite de upload do servidor. Escolha uma imagem menor.");
           return;
         }
         setError(data.error ?? "Falha ao enviar imagem.");
         return;
       }
+
       setAvatarUrl(data.avatarUrl);
       setAvatarUrlInput(data.avatarUrl);
       setAvatarFile(null);
+      setUploadProgress(100);
       setFeedback("Avatar enviado com sucesso.");
       router.refresh();
     } finally {
       setUploadingAvatar(false);
+      window.setTimeout(() => setUploadProgress(0), 1200);
     }
   }
 
@@ -302,6 +324,14 @@ export function AccountSettings({ user }: AccountSettingsProps) {
                 Limpar
               </button>
             </div>
+            {uploadingAvatar || uploadProgress > 0 ? (
+              <div className="mt-3">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--dourado)]/35">
+                  <div className="h-full bg-[var(--ink)] transition-all" style={{ width: `${uploadProgress}%` }} />
+                </div>
+                <p className="mt-1 text-xs text-[var(--carvao)]/75">Upload: {uploadProgress}%</p>
+              </div>
+            ) : null}
           </div>
         </article>
       </div>

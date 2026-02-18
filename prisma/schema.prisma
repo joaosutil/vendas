@@ -57,6 +57,8 @@ model User {
   supportTickets   SupportTicket[]
   supportMessages  SupportMessage[]     @relation("SupportMessageSender")
   adminInsightSnapshots AdminInsightSnapshot[] @relation("AdminInsightAuthor")
+
+  @@index([active])
 }
 
 model Product {
@@ -119,6 +121,9 @@ model Purchase {
   @@index([userId])
   @@index([productId])
   @@index([offerId])
+  @@index([createdAt, status])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Module {

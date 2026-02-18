@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Area,
   AreaChart,
@@ -107,6 +108,7 @@ type EnterpriseAdminHubProps = {
     subject: string;
     status: string;
     userEmail: string;
+    hasUnread: boolean;
     lastMessageAt: string;
   }>;
   users: Array<{
@@ -185,7 +187,10 @@ export function EnterpriseAdminHub({
   users,
   products,
 }: EnterpriseAdminHubProps) {
+  const router = useRouter();
   const [tab, setTab] = useState<"finance" | "growth" | "operations">("finance");
+  const [liveRefresh, setLiveRefresh] = useState(true);
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date>(new Date());
   const [aiInsightsState, setAiInsightsState] = useState(aiInsights);
   const [creativeIdeasState, setCreativeIdeasState] = useState(creativeIdeas);
   const [aiLoading, setAiLoading] = useState(false);
@@ -219,6 +224,15 @@ export function EnterpriseAdminHub({
       d30: buildRange(30),
     };
   }, []);
+
+  useEffect(() => {
+    if (!liveRefresh) return;
+    const timer = window.setInterval(() => {
+      router.refresh();
+      setLastRefreshAt(new Date());
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [liveRefresh, router]);
 
   const dailySeries = useMemo(
     () =>
@@ -436,9 +450,19 @@ export function EnterpriseAdminHub({
           </Link>
         </form>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          <Link href={quickRanges.d7} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 7d</Link>
-          <Link href={quickRanges.d14} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 14d</Link>
-          <Link href={quickRanges.d30} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 30d</Link>
+          <Link prefetch href={quickRanges.d7} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 7d</Link>
+          <Link prefetch href={quickRanges.d14} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 14d</Link>
+          <Link prefetch href={quickRanges.d30} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 30d</Link>
+          <button
+            type="button"
+            onClick={() => setLiveRefresh((v) => !v)}
+            className={`rounded-md border px-2 py-1 font-semibold ${liveRefresh ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-[var(--ink)]/20 bg-white"}`}
+          >
+            Live {liveRefresh ? "ON" : "OFF"}
+          </button>
+          <span className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 text-[11px]">
+            Atualizado: {lastRefreshAt.toLocaleTimeString("pt-BR")}
+          </span>
         </div>
       </div>
 
@@ -805,12 +829,12 @@ export function EnterpriseAdminHub({
           <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
             <h2 className="font-semibold">Ferramentas rápidas</h2>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <Link href={quickRanges.d30} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-sm font-semibold">
-                Análise 30 dias
-              </Link>
-              <Link href={csvUrl} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-sm font-semibold">
-                Exportar planilha
-              </Link>
+          <Link prefetch href={quickRanges.d30} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-sm font-semibold">
+            Análise 30 dias
+          </Link>
+          <Link prefetch href={csvUrl} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-sm font-semibold">
+            Exportar planilha
+          </Link>
               <button type="button" onClick={() => setTab("growth")} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-left text-sm font-semibold">
                 Gerar insights IA
               </button>

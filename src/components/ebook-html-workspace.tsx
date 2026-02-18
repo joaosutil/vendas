@@ -19,6 +19,7 @@ type Chapter = {
   endPage: number;
   paragraphs: string[];
   displayTitle?: string;
+  moduleIndex?: number;
 };
 
 type Highlight = {
@@ -87,15 +88,6 @@ function generateSupportParagraphs(title: string, amount: number) {
   return base.slice(0, amount);
 }
 
-function moduleCompletionByReading(modulesCount: number, chaptersCount: number, readChapters: number[], scrollProgress: number) {
-  if (!modulesCount) return [];
-  const byScrollCount = Math.floor((scrollProgress / 100) * modulesCount);
-  const highestRead = readChapters.length ? Math.max(...readChapters) + 1 : 0;
-  const byChapterCount = Math.floor((highestRead / chaptersCount) * modulesCount);
-  const count = Math.max(byScrollCount, byChapterCount);
-  return Array.from({ length: Math.min(count, modulesCount) }, (_, idx) => idx);
-}
-
 export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtmlWorkspaceProps) {
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
@@ -138,14 +130,36 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
         ? Math.min(Math.floor((index / Math.max(merged.length - 1, 1)) * modules.length), modules.length - 1)
         : index;
       const displayTitle = modules[moduleIndex] || chapter.title || `Seção ${index + 1}`;
-      return { ...chapter, displayTitle };
+      return { ...chapter, displayTitle, moduleIndex };
     });
   }, [modules]);
 
-  const completedModules = useMemo(
-    () => moduleCompletionByReading(modules.length, chaptersView.length, readChapters, scrollProgress),
-    [chaptersView.length, modules.length, readChapters, scrollProgress],
-  );
+  const completedModules = useMemo(() => {
+    if (!modules.length || !chaptersView.length) return [];
+
+    const moduleIndexes = new Set<number>();
+    for (const chapterIndex of readChapters) {
+      const chapter = chaptersView[chapterIndex];
+      if (!chapter) continue;
+      const moduleIndex = chapter.moduleIndex ?? 0;
+      moduleIndexes.add(Math.max(0, Math.min(moduleIndex, modules.length - 1)));
+    }
+
+    const active = chaptersView[activeChapter];
+    if (active?.moduleIndex !== undefined) {
+      moduleIndexes.add(Math.max(0, Math.min(active.moduleIndex, modules.length - 1)));
+    }
+
+    if (moduleIndexes.size === 0 && scrollProgress > 0) {
+      const byScroll = Math.min(
+        modules.length - 1,
+        Math.floor((scrollProgress / 100) * Math.max(modules.length, 1)),
+      );
+      moduleIndexes.add(Math.max(0, byScroll));
+    }
+
+    return Array.from(moduleIndexes).sort((a, b) => a - b);
+  }, [activeChapter, chaptersView, modules.length, readChapters, scrollProgress]);
 
   const overallProgress = useMemo(() => {
     const chapterProgress = chaptersView.length ? Math.round((readChapters.length / chaptersView.length) * 100) : 0;
@@ -500,7 +514,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
                     chapterRefs.current[chapterIndex] = el;
                   }}
                   data-chapter-index={chapterIndex}
-                  className={`ebook-chapter-card rounded-xl border px-4 py-5 md:px-8 md:py-7 transition min-h-[72vh] ${
+                  className={`ebook-chapter-card reader-chapter-virtualized rounded-xl border px-4 py-5 md:px-8 md:py-7 transition min-h-[72vh] ${
                     activeChapter === chapterIndex
                       ? "border-[var(--ink)]/45 bg-gradient-to-br from-[var(--dourado)]/20 to-white shadow-sm"
                       : "border-[var(--dourado)]/35 bg-white/90"
