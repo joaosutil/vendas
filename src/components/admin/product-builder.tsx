@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type ProductBuilderProps = {
   product: {
@@ -27,6 +28,7 @@ type ProductBuilderProps = {
 };
 
 export function ProductBuilder({ product }: ProductBuilderProps) {
+  const router = useRouter();
   const [title, setTitle] = useState(product.title);
   const [slug, setSlug] = useState(product.slug);
   const [description, setDescription] = useState(product.description ?? "");
@@ -57,7 +59,8 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         setFeedback("Falha ao salvar produto.");
         return;
       }
-      setFeedback("Produto atualizado. Recarregue para ver tudo sincronizado.");
+      setFeedback("Produto atualizado.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -78,8 +81,9 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         setFeedback("Falha ao enviar PDF.");
         return;
       }
-      setFeedback("PDF salvo com sucesso. Recarregue a página.");
+      setFeedback("PDF salvo com sucesso.");
       setPdfFile(null);
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -101,7 +105,8 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         return;
       }
       setModuleTitle("");
-      setFeedback("Módulo criado. Recarregue para ver na lista.");
+      setFeedback("Módulo criado.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -127,7 +132,8 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         return;
       }
       setLessonDraft((prev) => ({ ...prev, [moduleId]: { title: "", videoUrl: "", description: "" } }));
-      setFeedback("Aula criada. Recarregue para ver na lista.");
+      setFeedback("Aula criada.");
+      router.refresh();
     } finally {
       setLoading(false);
     }

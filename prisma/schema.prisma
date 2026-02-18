@@ -56,6 +56,7 @@ model User {
   ebookHighlights  EbookHighlight[]
   supportTickets   SupportTicket[]
   supportMessages  SupportMessage[]     @relation("SupportMessageSender")
+  adminInsightSnapshots AdminInsightSnapshot[] @relation("AdminInsightAuthor")
 }
 
 model Product {
@@ -233,4 +234,19 @@ model SupportMessage {
 
   @@index([ticketId, createdAt])
   @@index([senderUserId])
+}
+
+model AdminInsightSnapshot {
+  id            String   @id @default(cuid())
+  name          String
+  fromDate      String?
+  toDate        String?
+  insights      Json
+  creativeIdeas Json
+  createdAt     DateTime @default(now())
+  createdById   String?
+  createdBy     User?    @relation("AdminInsightAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([createdById])
 }

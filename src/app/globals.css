@@ -102,6 +102,28 @@ body {
   border-color: rgba(107, 114, 128, 0.55) !important;
 }
 
+:root[data-reader-theme="dark"] button.bg-white,
+:root[data-reader-theme="dark"] a.bg-white {
+  background-color: rgba(17, 26, 40, 0.9) !important;
+  color: #e5e7eb !important;
+}
+
+:root[data-reader-theme="dark"] table {
+  color: #e5e7eb !important;
+}
+
+:root[data-reader-theme="dark"] thead {
+  color: rgba(191, 219, 254, 0.9) !important;
+}
+
+:root[data-reader-theme="dark"] tr {
+  border-color: rgba(71, 85, 105, 0.45) !important;
+}
+
+:root[data-reader-theme="dark"] .shadow-sm {
+  box-shadow: 0 8px 30px rgba(2, 6, 23, 0.35) !important;
+}
+
 :root[data-reader-theme="dark"] a {
   color: #bfdbfe;
 }

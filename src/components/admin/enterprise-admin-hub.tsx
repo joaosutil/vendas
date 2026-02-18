@@ -7,7 +7,9 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  Brush,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
@@ -18,10 +20,38 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { AnimatePresence, motion } from "framer-motion";
 import { AdminConsole } from "@/components/admin/admin-console";
 
 function toCurrency(valueCents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valueCents / 100);
+}
+
+function normalizeInsightLine(item: unknown): string {
+  if (typeof item === "string") return item;
+  if (typeof item === "number" || typeof item === "boolean") return String(item);
+  if (item && typeof item === "object") {
+    const record = item as Record<string, unknown>;
+    const knownCreative = ("gancho3s" in record || "roteiro" in record || "gatilho" in record || "canal" in record);
+    if (knownCreative) {
+      const parts = [
+        typeof record.gancho3s === "string" ? `Gancho: ${record.gancho3s}` : "",
+        typeof record.roteiro === "string" ? `Roteiro: ${record.roteiro}` : "",
+        typeof record.gatilho === "string" ? `Gatilho: ${record.gatilho}` : "",
+        typeof record.canal === "string" ? `Canal: ${record.canal}` : "",
+      ].filter(Boolean);
+      if (parts.length) return parts.join(" | ");
+    }
+    return Object.entries(record)
+      .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
+      .join(" | ");
+  }
+  return "";
+}
+
+function normalizeInsightList(items: unknown): string[] {
+  if (!Array.isArray(items)) return [];
+  return items.map(normalizeInsightLine).map((entry) => entry.trim()).filter(Boolean).slice(0, 20);
 }
 
 type EnterpriseAdminHubProps = {
@@ -100,6 +130,17 @@ type EnterpriseAdminHubProps = {
   }>;
 };
 
+type SavedSnapshot = {
+  id: string;
+  name: string;
+  fromDate?: string | null;
+  toDate?: string | null;
+  insights: string[];
+  creativeIdeas: string[];
+  createdAt: string;
+  createdBy?: { email?: string | null; name?: string | null } | null;
+};
+
 const chartPalette = {
   gross: "#2563eb",
   net: "#059669",
@@ -109,6 +150,24 @@ const chartPalette = {
   line2: "#06b6d4",
   bgStroke: "#94a3b8",
 };
+
+const piePalette = ["#2563eb", "#06b6d4", "#7c3aed", "#059669", "#f59e0b", "#ef4444", "#64748b"];
+
+function toBrl(value: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+function tooltipCurrency(value: unknown) {
+  const numeric = typeof value === "number" ? value : Number(value ?? 0);
+  return toBrl(Number.isFinite(numeric) ? numeric : 0);
+}
+
+function formatLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 export function EnterpriseAdminHub({
   fromValue,
@@ -132,6 +191,34 @@ export function EnterpriseAdminHub({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [growthTab, setGrowthTab] = useState<"generated" | "saved">("generated");
+  const [savedSnapshots, setSavedSnapshots] = useState<SavedSnapshot[]>([]);
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(null);
+  const [loadingSnapshots, setLoadingSnapshots] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [snapshotName, setSnapshotName] = useState("");
+  const [savingSnapshot, setSavingSnapshot] = useState(false);
+  const [trendMode, setTrendMode] = useState<"revenue" | "volume">("revenue");
+  const [showGross, setShowGross] = useState(true);
+  const [showNet, setShowNet] = useState(true);
+  const [showFees, setShowFees] = useState(false);
+  const [activePaymentSlice, setActivePaymentSlice] = useState<number | null>(null);
+  const [activeStatusSlice, setActiveStatusSlice] = useState<number | null>(null);
+  const quickRanges = useMemo(() => {
+    const end = new Date();
+    const buildRange = (days: number) => {
+      const start = new Date(end);
+      start.setDate(start.getDate() - (days - 1));
+      const startIso = formatLocalDate(start);
+      const endIso = formatLocalDate(end);
+      return `/admin?from=${encodeURIComponent(startIso)}&to=${encodeURIComponent(endIso)}`;
+    };
+    return {
+      d7: buildRange(7),
+      d14: buildRange(14),
+      d30: buildRange(30),
+    };
+  }, []);
 
   const dailySeries = useMemo(
     () =>
@@ -140,6 +227,7 @@ export function EnterpriseAdminHub({
         sales: entry.sales,
         gross: Number((entry.grossCents / 100).toFixed(2)),
         net: Number((entry.netCents / 100).toFixed(2)),
+        fees: Number(((entry.grossCents - entry.netCents) / 100).toFixed(2)),
         refunds: entry.refunds,
       })),
     [dailyFinance],
@@ -230,14 +318,103 @@ export function EnterpriseAdminHub({
         return;
       }
 
-      setAiInsightsState((data.insights ?? []).length ? data.insights ?? [] : aiInsights);
-      setCreativeIdeasState((data.creativeIdeas ?? []).length ? data.creativeIdeas ?? [] : creativeIdeas);
+      const normalizedInsights = normalizeInsightList(data.insights);
+      const normalizedCreatives = normalizeInsightList(data.creativeIdeas);
+      setAiInsightsState(normalizedInsights.length ? normalizedInsights : aiInsights);
+      setCreativeIdeasState(normalizedCreatives.length ? normalizedCreatives : creativeIdeas);
       if (data.warning) setAiNotice(data.warning);
     } catch {
       setAiError("Erro de comunicação com o endpoint de IA.");
     } finally {
       setAiLoading(false);
     }
+  }
+
+  async function loadSavedSnapshots() {
+    setLoadingSnapshots(true);
+    setAiError(null);
+    try {
+      const response = await fetch("/api/admin/ai-insights/snapshots", { cache: "no-store" });
+      const data = (await response.json()) as {
+        ok: boolean;
+        snapshots?: Array<{
+          id: string;
+          name: string;
+          fromDate?: string | null;
+          toDate?: string | null;
+          insights: unknown;
+          creativeIdeas: unknown;
+          createdAt: string;
+          createdBy?: { email?: string | null; name?: string | null } | null;
+        }>;
+      };
+      if (!response.ok || !data.ok) {
+        setAiError("Falha ao carregar históricos salvos.");
+        return;
+      }
+      const parsed: SavedSnapshot[] = (data.snapshots ?? []).map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        fromDate: entry.fromDate,
+        toDate: entry.toDate,
+        insights: normalizeInsightList(entry.insights),
+        creativeIdeas: normalizeInsightList(entry.creativeIdeas),
+        createdAt: entry.createdAt,
+        createdBy: entry.createdBy ?? null,
+      }));
+      setSavedSnapshots(parsed);
+      if (!selectedSnapshotId && parsed[0]) setSelectedSnapshotId(parsed[0].id);
+    } catch {
+      setAiError("Erro ao carregar históricos salvos.");
+    } finally {
+      setLoadingSnapshots(false);
+    }
+  }
+
+  async function saveCurrentInsights() {
+    const trimmedName = snapshotName.trim();
+    if (!trimmedName) {
+      setAiError("Informe um nome para salvar o histórico.");
+      return;
+    }
+    setSavingSnapshot(true);
+    setAiError(null);
+    try {
+      const response = await fetch("/api/admin/ai-insights/snapshots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: trimmedName,
+          fromDate: fromValue,
+          toDate: toValue,
+          insights: aiInsightsState,
+          creativeIdeas: creativeIdeasState,
+        }),
+      });
+      const data = (await response.json()) as { ok: boolean; error?: string };
+      if (!response.ok || !data.ok) {
+        setAiError(data.error ?? "Falha ao salvar histórico.");
+        return;
+      }
+      setSaveModalOpen(false);
+      setSnapshotName("");
+      setGrowthTab("saved");
+      await loadSavedSnapshots();
+      setAiNotice("Histórico salvo com sucesso.");
+    } catch {
+      setAiError("Erro ao salvar histórico.");
+    } finally {
+      setSavingSnapshot(false);
+    }
+  }
+
+  function applySnapshot(snapshotId: string) {
+    const snapshot = savedSnapshots.find((entry) => entry.id === snapshotId);
+    if (!snapshot) return;
+    setSelectedSnapshotId(snapshotId);
+    setAiInsightsState(snapshot.insights);
+    setCreativeIdeasState(snapshot.creativeIdeas);
+    setAiNotice(`Aplicado histórico: ${snapshot.name}`);
   }
 
   return (
@@ -258,6 +435,11 @@ export function EnterpriseAdminHub({
             Exportar CSV
           </Link>
         </form>
+        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+          <Link href={quickRanges.d7} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 7d</Link>
+          <Link href={quickRanges.d14} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 14d</Link>
+          <Link href={quickRanges.d30} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 30d</Link>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-3">
@@ -268,8 +450,16 @@ export function EnterpriseAdminHub({
         </div>
       </div>
 
+      <AnimatePresence mode="wait" initial={false}>
       {tab === "finance" ? (
-        <div className="space-y-4">
+        <motion.div
+          key="tab-finance"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="space-y-4"
+        >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <MetricCard label="Bruto" value={toCurrency(stats.grossCents)} />
             <MetricCard label="Líquido" value={toCurrency(stats.netCents)} />
@@ -281,17 +471,30 @@ export function EnterpriseAdminHub({
 
           <div className="grid gap-4 xl:grid-cols-3">
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 xl:col-span-2">
-              <h2 className="font-semibold">Bruto x Líquido (linha temporal)</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-semibold">Série temporal</h2>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button type="button" onClick={() => setTrendMode("revenue")} className={`rounded-md px-2 py-1 font-semibold ${trendMode === "revenue" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"}`}>Receita</button>
+                  <button type="button" onClick={() => setTrendMode("volume")} className={`rounded-md px-2 py-1 font-semibold ${trendMode === "volume" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"}`}>Volume</button>
+                  <button type="button" onClick={() => setShowGross((v) => !v)} className={`rounded-md px-2 py-1 font-semibold ${showGross ? "bg-blue-600 text-white" : "border border-blue-300 bg-white text-blue-700"}`}>Bruto</button>
+                  <button type="button" onClick={() => setShowNet((v) => !v)} className={`rounded-md px-2 py-1 font-semibold ${showNet ? "bg-emerald-600 text-white" : "border border-emerald-300 bg-white text-emerald-700"}`}>Líquido</button>
+                  <button type="button" onClick={() => setShowFees((v) => !v)} className={`rounded-md px-2 py-1 font-semibold ${showFees ? "bg-amber-600 text-white" : "border border-amber-300 bg-white text-amber-700"}`}>Taxas</button>
+                </div>
+              </div>
               <div className="mt-3 h-[340px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dailySeries}>
                     <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.25} />
                     <XAxis dataKey="date" stroke={chartPalette.bgStroke} />
                     <YAxis stroke={chartPalette.bgStroke} />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => tooltipCurrency(value)} />
                     <Legend />
-                    <Line type="monotone" dataKey="gross" name="Bruto (R$)" stroke={chartPalette.gross} strokeWidth={2.5} dot={false} />
-                    <Line type="monotone" dataKey="net" name="Líquido (R$)" stroke={chartPalette.net} strokeWidth={2.5} dot={false} />
+                    {trendMode === "revenue" && showGross ? <Line type="monotone" dataKey="gross" name="Bruto (R$)" stroke={chartPalette.gross} strokeWidth={2.5} dot={false} /> : null}
+                    {trendMode === "revenue" && showNet ? <Line type="monotone" dataKey="net" name="Líquido (R$)" stroke={chartPalette.net} strokeWidth={2.5} dot={false} /> : null}
+                    {trendMode === "revenue" && showFees ? <Line type="monotone" dataKey="fees" name="Taxas (R$)" stroke={chartPalette.fees} strokeWidth={2.5} dot={false} /> : null}
+                    {trendMode === "volume" ? <Line type="monotone" dataKey="sales" name="Vendas" stroke={chartPalette.sales} strokeWidth={2.8} dot={false} /> : null}
+                    {trendMode === "volume" ? <Line type="monotone" dataKey="refunds" name="Estornos" stroke={chartPalette.refunds} strokeWidth={2.4} dot={false} /> : null}
+                    <Brush dataKey="date" height={20} stroke={chartPalette.bgStroke} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -302,7 +505,23 @@ export function EnterpriseAdminHub({
               <div className="mt-3 h-[340px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={paymentPieData} dataKey="value" nameKey="name" outerRadius={105} fill={chartPalette.line2} label />
+                    <Pie
+                      data={paymentPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={105}
+                      label
+                      onMouseEnter={(_, index) => setActivePaymentSlice(index)}
+                      onMouseLeave={() => setActivePaymentSlice(null)}
+                    >
+                      {paymentPieData.map((_, index) => (
+                        <Cell
+                          key={`payment-cell-${index}`}
+                          fill={piePalette[index % piePalette.length]}
+                          fillOpacity={activePaymentSlice === null || activePaymentSlice === index ? 1 : 0.35}
+                        />
+                      ))}
+                    </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
@@ -323,6 +542,7 @@ export function EnterpriseAdminHub({
                     <Legend />
                     <Area type="monotone" dataKey="sales" name="Vendas" stroke={chartPalette.sales} fill={chartPalette.sales} fillOpacity={0.25} />
                     <Area type="monotone" dataKey="refunds" name="Estornos" stroke={chartPalette.refunds} fill={chartPalette.refunds} fillOpacity={0.2} />
+                    <Brush dataKey="date" height={18} stroke={chartPalette.bgStroke} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -336,18 +556,25 @@ export function EnterpriseAdminHub({
                     <CartesianGrid strokeDasharray="3 3" stroke={chartPalette.bgStroke} opacity={0.2} />
                     <XAxis dataKey="method" stroke={chartPalette.bgStroke} />
                     <YAxis stroke={chartPalette.bgStroke} />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => tooltipCurrency(value)} />
                     <Bar dataKey="avg" name="Líquido Médio (R$)" fill={chartPalette.net} radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </section>
           </div>
-        </div>
+        </motion.div>
       ) : null}
 
       {tab === "growth" ? (
-        <div className="space-y-4">
+        <motion.div
+          key="tab-growth"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="space-y-4"
+        >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <MetricCard label="Vendas / Ativas" value={`${stats.salesCount}/${stats.keptSalesCount}`} />
             <MetricCard label="Ticket Bruto" value={toCurrency(stats.avgGrossTicket)} />
@@ -379,7 +606,23 @@ export function EnterpriseAdminHub({
               <div className="mt-3 h-[320px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={statusPieData} dataKey="value" nameKey="name" outerRadius={105} fill={chartPalette.sales} label />
+                    <Pie
+                      data={statusPieData}
+                      dataKey="value"
+                      nameKey="name"
+                      outerRadius={105}
+                      label
+                      onMouseEnter={(_, index) => setActiveStatusSlice(index)}
+                      onMouseLeave={() => setActiveStatusSlice(null)}
+                    >
+                      {statusPieData.map((_, index) => (
+                        <Cell
+                          key={`status-cell-${index}`}
+                          fill={piePalette[index % piePalette.length]}
+                          fillOpacity={activeStatusSlice === null || activeStatusSlice === index ? 1 : 0.35}
+                        />
+                      ))}
+                    </Pie>
                     <Tooltip />
                   </PieChart>
                 </ResponsiveContainer>
@@ -387,40 +630,145 @@ export function EnterpriseAdminHub({
             </section>
           </div>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-semibold">Análises automáticas orientadas por dados</h2>
+          <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-semibold">Inteligência e biblioteca de históricos</h2>
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={generateWithOpenRouter}
-                  disabled={aiLoading}
-                  className="rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                  onClick={() => setGrowthTab("generated")}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold ${
+                    growthTab === "generated" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"
+                  }`}
                 >
-                  {aiLoading ? "Gerando..." : "Gerar com OpenRouter"}
+                  Geradas agora
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGrowthTab("saved");
+                    void loadSavedSnapshots();
+                  }}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold ${
+                    growthTab === "saved" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"
+                  }`}
+                >
+                  Salvas
                 </button>
               </div>
-              {aiError ? (
-                <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">{aiError}</p>
-              ) : null}
-              {aiNotice ? (
-                <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">{aiNotice}</p>
-              ) : null}
-              <ul className="mt-3 space-y-2 text-sm">
-                {aiInsightsState.map((item, idx) => (
-                  <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
-                ))}
-              </ul>
-            </section>
-            <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Criativos IA (viralização + gatilhos de compra)</h2>
-              <ul className="mt-3 space-y-2 text-sm">
-                {creativeIdeasState.map((item, idx) => (
-                  <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
-                ))}
-              </ul>
-            </section>
-          </div>
+            </div>
+
+            {growthTab === "generated" ? (
+              <>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={generateWithOpenRouter}
+                    disabled={aiLoading}
+                    className="rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {aiLoading ? "Gerando..." : "Gerar com OpenRouter"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSaveModalOpen(true)}
+                    className="rounded-md border border-[var(--ink)]/30 bg-white px-3 py-1 text-xs font-semibold"
+                  >
+                    Salvar geração em aba
+                  </button>
+                </div>
+                {aiError ? (
+                  <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">{aiError}</p>
+                ) : null}
+                {aiNotice ? (
+                  <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">{aiNotice}</p>
+                ) : null}
+                <div className="mt-3 grid gap-4 xl:grid-cols-2">
+                  <section>
+                    <h3 className="text-sm font-semibold">Análises</h3>
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {aiInsightsState.map((item, idx) => (
+                        <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section>
+                    <h3 className="text-sm font-semibold">Criativos</h3>
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {creativeIdeasState.map((item, idx) => (
+                        <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              </>
+            ) : (
+              <div className="mt-3 grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+                <aside className="rounded-xl border border-[var(--surface-border)] bg-white/70 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold">Históricos salvos</p>
+                    <button
+                      type="button"
+                      onClick={() => void loadSavedSnapshots()}
+                      className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold"
+                    >
+                      Atualizar
+                    </button>
+                  </div>
+                  {loadingSnapshots ? <p className="text-xs text-[var(--carvao)]/70">Carregando...</p> : null}
+                  <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+                    {savedSnapshots.map((snapshot) => (
+                      <button
+                        key={snapshot.id}
+                        type="button"
+                        onClick={() => applySnapshot(snapshot.id)}
+                        className={`w-full rounded-lg border px-3 py-2 text-left text-xs ${
+                          selectedSnapshotId === snapshot.id
+                            ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+                            : "border-[var(--dourado)]/35 bg-white"
+                        }`}
+                      >
+                        <p className="font-semibold">{snapshot.name}</p>
+                        <p className="mt-1 opacity-80">
+                          {snapshot.fromDate ?? "-"} até {snapshot.toDate ?? "-"}
+                        </p>
+                        <p className="opacity-80">{new Date(snapshot.createdAt).toLocaleString("pt-BR")}</p>
+                      </button>
+                    ))}
+                    {!loadingSnapshots && savedSnapshots.length === 0 ? (
+                      <p className="text-xs text-[var(--carvao)]/70">Nenhum histórico salvo ainda.</p>
+                    ) : null}
+                  </div>
+                </aside>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <section>
+                    <h3 className="text-sm font-semibold">Análises da aba selecionada</h3>
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {aiInsightsState.map((item, idx) => (
+                        <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                  <section>
+                    <h3 className="text-sm font-semibold">Criativos da aba selecionada</h3>
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {creativeIdeasState.map((item, idx) => (
+                        <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                </div>
+              </div>
+            )}
+          </section>
 
           <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
             <h2 className="font-semibold">Top produtos por volume</h2>
@@ -436,18 +784,80 @@ export function EnterpriseAdminHub({
               </ResponsiveContainer>
             </div>
           </section>
-        </div>
+        </motion.div>
       ) : null}
 
       {tab === "operations" ? (
-        <div className="space-y-4">
+        <motion.div
+          key="tab-operations"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+          className="space-y-4"
+        >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <MetricCard label="Usuários ativos / total" value={`${stats.activeUsersCount}/${stats.usersCount}`} />
             <MetricCard label="Produtos" value={`${stats.productsCount}`} />
             <MetricCard label="Compras ativas" value={`${stats.activePurchasesCount}`} />
             <MetricCard label="Refund/Chargeback" value={`${stats.refundedCount}`} />
           </div>
+          <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
+            <h2 className="font-semibold">Ferramentas rápidas</h2>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <Link href={quickRanges.d30} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-sm font-semibold">
+                Análise 30 dias
+              </Link>
+              <Link href={csvUrl} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-sm font-semibold">
+                Exportar planilha
+              </Link>
+              <button type="button" onClick={() => setTab("growth")} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-left text-sm font-semibold">
+                Gerar insights IA
+              </button>
+              <button type="button" onClick={() => setTab("operations")} className="rounded-lg border border-[var(--ink)]/20 bg-white px-3 py-2 text-left text-sm font-semibold">
+                Atualizar painel
+              </button>
+            </div>
+          </section>
           <AdminConsole openTickets={openTickets} users={users} products={products} />
+        </motion.div>
+      ) : null}
+      </AnimatePresence>
+
+      {saveModalOpen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 shadow-2xl">
+            <h3 className="text-lg font-semibold">Salvar geração</h3>
+            <p className="mt-1 text-xs text-[var(--carvao)]/75">
+              Dê um nome para esta análise e criativos para aparecer na aba de históricos.
+            </p>
+            <input
+              value={snapshotName}
+              onChange={(event) => setSnapshotName(event.target.value)}
+              className="mt-3 w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+              placeholder="Ex: Campanha Fevereiro - Semana 3"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSaveModalOpen(false);
+                  setSnapshotName("");
+                }}
+                className="rounded-md border border-[var(--ink)]/30 bg-white px-3 py-1 text-xs font-semibold"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={saveCurrentInsights}
+                disabled={savingSnapshot}
+                className="rounded-md bg-[var(--ink)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {savingSnapshot ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
     </section>

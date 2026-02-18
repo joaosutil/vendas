@@ -58,6 +58,41 @@ function parseJsonBlock(input: string) {
   }
 }
 
+function toReadableAiItem(item: unknown): string {
+  if (typeof item === "string") return item.trim();
+  if (typeof item === "number" || typeof item === "boolean") return String(item);
+  if (item && typeof item === "object") {
+    const record = item as Record<string, unknown>;
+    const knownCreative =
+      ("gancho3s" in record || "roteiro" in record || "gatilho" in record || "canal" in record);
+    if (knownCreative) {
+      const gancho = typeof record.gancho3s === "string" ? record.gancho3s : "";
+      const roteiro = typeof record.roteiro === "string" ? record.roteiro : "";
+      const gatilho = typeof record.gatilho === "string" ? record.gatilho : "";
+      const canal = typeof record.canal === "string" ? record.canal : "";
+      const parts = [
+        gancho ? `Gancho: ${gancho}` : "",
+        roteiro ? `Roteiro: ${roteiro}` : "",
+        gatilho ? `Gatilho: ${gatilho}` : "",
+        canal ? `Canal: ${canal}` : "",
+      ].filter(Boolean);
+      if (parts.length) return parts.join(" | ");
+    }
+
+    const compact = Object.entries(record)
+      .slice(0, 8)
+      .map(([key, value]) => `${key}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
+      .join(" | ");
+    return compact;
+  }
+  return "";
+}
+
+function normalizeAiList(items: unknown, max = 8): string[] {
+  if (!Array.isArray(items)) return [];
+  return items.map(toReadableAiItem).map((entry) => entry.trim()).filter(Boolean).slice(0, max);
+}
+
 function currency(valueCents: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valueCents / 100);
 }
@@ -233,8 +268,8 @@ Também inclua, nas ideias criativas:
     });
   }
 
-  const insights = (parsedJson.insights ?? []).filter(Boolean).slice(0, 8);
-  const creativeIdeas = (parsedJson.creativeIdeas ?? []).filter(Boolean).slice(0, 8);
+  const insights = normalizeAiList(parsedJson.insights, 8);
+  const creativeIdeas = normalizeAiList(parsedJson.creativeIdeas, 8);
 
   return NextResponse.json({ ok: true, insights, creativeIdeas, model });
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type AdminConsoleProps = {
   openTickets: Array<{
@@ -33,6 +34,7 @@ type AdminConsoleProps = {
 };
 
 export function AdminConsole({ openTickets, users, products }: AdminConsoleProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"users" | "products" | "support">("users");
   const [userName, setUserName] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -72,6 +74,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
       setUserPassword("");
       setUserRole("USER");
       setFeedback("Usuario criado com sucesso.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -106,6 +109,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
       setCheckoutUrl("");
       setOfferId("");
       setFeedback("Produto criado com sucesso.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -128,6 +132,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
       }
       setAdminReply((prev) => ({ ...prev, [ticketId]: "" }));
       setFeedback("Resposta enviada.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -147,6 +152,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
         return;
       }
       setFeedback("Status atualizado.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -165,7 +171,8 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
         setFeedback("Falha ao atualizar usuario.");
         return;
       }
-      setFeedback("Usuario atualizado. Recarregue a pagina para refletir.");
+      setFeedback("Usuario atualizado.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -183,7 +190,8 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
         setFeedback("Falha ao excluir usuario.");
         return;
       }
-      setFeedback("Usuario excluido. Recarregue a pagina para refletir.");
+      setFeedback("Usuario excluido.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -201,6 +209,7 @@ export function AdminConsole({ openTickets, users, products }: AdminConsoleProps
         return;
       }
       setFeedback("E-mail de redefinicao enviado.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
