@@ -131,6 +131,7 @@ model Lesson {
   id         String   @id @default(cuid())
   moduleId   String
   title      String
+  description String?
   contentUrl String?
   orderIndex Int
   module     Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)

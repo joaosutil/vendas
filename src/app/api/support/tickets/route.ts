@@ -46,7 +46,15 @@ export async function POST(request: Request) {
   }
 
   const { subject, message } = parsed.data;
-  const aiReply = generateSupportAiReply(message);
+  const products = await prisma.product.findMany({
+    where: { active: true },
+    select: { title: true },
+    take: 20,
+  });
+  const aiReply = await generateSupportAiReply(message, {
+    products: products.map((product) => product.title),
+    siteName: "Marketing Digital Top",
+  });
   const escalate = shouldEscalateToHuman(message);
 
   const ticket = await prisma.supportTicket.create({

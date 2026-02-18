@@ -58,18 +58,55 @@ function parseJsonBlock(input: string) {
   }
 }
 
+function currency(valueCents: number) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valueCents / 100);
+}
+
+function buildHeuristicInsights(data: z.infer<typeof payloadSchema>) {
+  const gross = data.stats.grossCents;
+  const net = data.stats.netCents;
+  const topMethod = data.paymentMethodRows[0];
+  const topProduct = data.topProducts[0];
+
+  const insights = [
+    `Período ${data.from ?? "N/A"} até ${data.to ?? "N/A"}: bruto ${currency(gross)} e líquido ${currency(net)} (margem ${data.stats.marginRate}%).`,
+    `Retenção ${data.stats.retentionRate}% e refund ${data.stats.refundRate}%. ${data.stats.refundRate > 12 ? "Priorize onboarding e alinhamento de promessa na oferta." : "Indicador saudável para escalar aquisição."}`,
+    topMethod
+      ? `Método líder: ${topMethod.method} com ${topMethod.share}% de participação e líquido médio ${currency(topMethod.avgNetCents)}.`
+      : "Sem método dominante no período.",
+    topProduct
+      ? `Produto com maior tração: ${topProduct.title} (${topProduct.count} vendas). Teste criativos derivados desse campeão.`
+      : "Sem produto com volume relevante no período.",
+  ];
+
+  const creativeIdeas = [
+    "Criativo 1: gancho de 3 segundos com dor específica + prova curta + CTA direto para checkout.",
+    "Criativo 2: roteiro UGC (problema > tentativa frustrada > método > resultado > CTA) com depoimento real.",
+    "Criativo 3: carrossel de objeções (tempo, preço, confiança) com quebra por prova social.",
+    "Criativo 4: anúncio comparativo antes/depois com urgência de sessão e bônus de ação imediata.",
+  ];
+
+  return { insights, creativeIdeas };
+}
+
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false }, { status: 403 });
 
-  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
-  if (!apiKey) {
-    return NextResponse.json({ ok: false, error: "OPENROUTER_API_KEY não configurada" }, { status: 400 });
-  }
-
   const raw = await request.json().catch(() => null);
   const parsed = payloadSchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Payload inválido" }, { status: 400 });
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  if (!apiKey) {
+    const fallback = buildHeuristicInsights(parsed.data);
+    return NextResponse.json({
+      ok: true,
+      insights: fallback.insights,
+      creativeIdeas: fallback.creativeIdeas,
+      provider: "local-fallback",
+      warning: "OPENROUTER_API_KEY não configurada",
+    });
+  }
 
   const model = process.env.OPENROUTER_MODEL?.trim() || "openrouter/auto";
   const data = parsed.data;
@@ -94,34 +131,65 @@ Top Produtos: ${JSON.stringify(data.topProducts)}
 Status: ${JSON.stringify(data.statusDistribution)}
 `;
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.APP_BASE_URL ?? "https://marketingdigi.shop",
-      "X-Title": "MarketingDigi Admin",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.35,
-      max_tokens: 650,
-      messages: [
-        {
-          role: "system",
-          content: "Você é especialista em growth e analytics para infoprodutos.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+  let response: Response;
+  try {
+    response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.APP_BASE_URL ?? "https://marketingdigi.shop",
+        "X-Title": "MarketingDigi Admin",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.35,
+        max_tokens: 900,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Você é especialista em growth, copywriting e mídia paga para infoprodutos no Brasil. Foque em execução e resultado.",
+          },
+          {
+            role: "user",
+            content: `${prompt}
+
+Também inclua, nas ideias criativas:
+- Gancho de 3s
+- Estrutura de roteiro (hook > problema > solução > prova > CTA)
+- Gatilho psicológico principal (escassez, prova social, autoridade, especificidade, urgência de sessão)
+- Canal recomendado (Reels/TikTok/Shorts/Meta Ads)`,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    const fallback = buildHeuristicInsights(data);
+    const message = error instanceof Error ? error.message : "Falha de rede";
+    return NextResponse.json({
+      ok: true,
+      insights: fallback.insights,
+      creativeIdeas: fallback.creativeIdeas,
+      provider: "local-fallback",
+      warning: `Falha ao conectar OpenRouter: ${message}`,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
-    const errorText = await response.text();
-    return NextResponse.json({ ok: false, error: `OpenRouter error: ${errorText}` }, { status: 502 });
+    const fallback = buildHeuristicInsights(data);
+    return NextResponse.json({
+      ok: true,
+      insights: fallback.insights,
+      creativeIdeas: fallback.creativeIdeas,
+      provider: "local-fallback",
+      warning: `OpenRouter error (${response.status})`,
+    });
   }
 
   const completion = (await response.json()) as {
@@ -131,7 +199,14 @@ Status: ${JSON.stringify(data.statusDistribution)}
   const parsedJson = parseJsonBlock(content);
 
   if (!parsedJson) {
-    return NextResponse.json({ ok: false, error: "Resposta da IA em formato inválido" }, { status: 502 });
+    const fallback = buildHeuristicInsights(data);
+    return NextResponse.json({
+      ok: true,
+      insights: fallback.insights,
+      creativeIdeas: fallback.creativeIdeas,
+      provider: "local-fallback",
+      warning: "Resposta da IA em formato inválido",
+    });
   }
 
   const insights = (parsedJson.insights ?? []).filter(Boolean).slice(0, 8);

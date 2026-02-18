@@ -131,6 +131,7 @@ export function EnterpriseAdminHub({
   const [creativeIdeasState, setCreativeIdeasState] = useState(creativeIdeas);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const dailySeries = useMemo(
     () =>
@@ -171,6 +172,7 @@ export function EnterpriseAdminHub({
   async function generateWithOpenRouter() {
     setAiLoading(true);
     setAiError(null);
+    setAiNotice(null);
     try {
       const response = await fetch("/api/admin/ai-insights", {
         method: "POST",
@@ -201,20 +203,36 @@ export function EnterpriseAdminHub({
         }),
       });
 
-      const data = (await response.json()) as {
-        ok: boolean;
-        error?: string;
-        insights?: string[];
-        creativeIdeas?: string[];
-      };
+      const rawText = await response.text();
+      let data:
+        | {
+            ok: boolean;
+            error?: string;
+            insights?: string[];
+            creativeIdeas?: string[];
+            warning?: string;
+          }
+        | null = null;
+      try {
+        data = JSON.parse(rawText) as {
+          ok: boolean;
+          error?: string;
+          insights?: string[];
+          creativeIdeas?: string[];
+          warning?: string;
+        };
+      } catch {
+        data = null;
+      }
 
-      if (!response.ok || !data.ok) {
-        setAiError(data.error ?? "Falha ao gerar recomendações com OpenRouter.");
+      if (!response.ok || !data?.ok) {
+        setAiError(data?.error ?? `Falha OpenRouter (${response.status}). Resposta: ${rawText.slice(0, 180)}`);
         return;
       }
 
       setAiInsightsState((data.insights ?? []).length ? data.insights ?? [] : aiInsights);
       setCreativeIdeasState((data.creativeIdeas ?? []).length ? data.creativeIdeas ?? [] : creativeIdeas);
+      if (data.warning) setAiNotice(data.warning);
     } catch {
       setAiError("Erro de comunicação com o endpoint de IA.");
     } finally {
@@ -228,7 +246,7 @@ export function EnterpriseAdminHub({
         <h1 className="text-3xl font-bold">Admin Enterprise Hub</h1>
         <p className="mt-1 text-sm text-[var(--carvao)]/80">Gestão financeira avançada, growth e operações.</p>
         <p className="mt-1 text-xs text-[var(--carvao)]/70">
-          Insights de IA: engine analítica orientada por dados (heurística + regras), não modelo generativo LLM.
+          Insights de IA: OpenRouter quando disponível, com fallback analítico local para nunca parar sua operação.
         </p>
         <form method="get" className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
           <input type="date" name="from" defaultValue={fromValue} className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
@@ -385,6 +403,9 @@ export function EnterpriseAdminHub({
               {aiError ? (
                 <p className="mt-2 rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs text-red-700">{aiError}</p>
               ) : null}
+              {aiNotice ? (
+                <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-800">{aiNotice}</p>
+              ) : null}
               <ul className="mt-3 space-y-2 text-sm">
                 {aiInsightsState.map((item, idx) => (
                   <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>
@@ -392,7 +413,7 @@ export function EnterpriseAdminHub({
               </ul>
             </section>
             <section className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-              <h2 className="font-semibold">Sugestões de criativos e distribuição</h2>
+              <h2 className="font-semibold">Criativos IA (viralização + gatilhos de compra)</h2>
               <ul className="mt-3 space-y-2 text-sm">
                 {creativeIdeasState.map((item, idx) => (
                   <li key={idx} className="rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2">{item}</li>

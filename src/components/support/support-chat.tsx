@@ -129,6 +129,10 @@ export function SupportChat({ userEmail }: SupportChatProps) {
         <p className="mt-1 text-sm text-[var(--carvao)]/80">
           Chat IA + atendimento humano. Conta atual: <strong>{userEmail}</strong>
         </p>
+        <div className="mt-3 rounded-lg border border-[var(--dourado)]/40 bg-[var(--creme)]/70 p-3 text-xs text-[var(--carvao)]/80">
+          A IA responde somente sobre produtos e funcionamento do site (acesso, compra, pagamento, download e área de membros).
+          Para outros temas, escreva <strong>&quot;falar com atendente&quot;</strong>.
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.35fr]">

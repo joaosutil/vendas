@@ -86,7 +86,15 @@ export async function POST(request: Request, context: { params: Promise<{ ticket
       }),
     ]);
   } else {
-    const aiReply = generateSupportAiReply(content);
+    const products = await prisma.product.findMany({
+      where: { active: true },
+      select: { title: true },
+      take: 20,
+    });
+    const aiReply = await generateSupportAiReply(content, {
+      products: products.map((product) => product.title),
+      siteName: "Marketing Digital Top",
+    });
     await prisma.$transaction([
       prisma.supportMessage.create({
         data: {

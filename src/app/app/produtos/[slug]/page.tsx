@@ -39,7 +39,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     include: {
       lessons: {
         orderBy: { orderIndex: "asc" },
-        select: { id: true, title: true, contentUrl: true },
+        select: { id: true, title: true, description: true, contentUrl: true },
       },
     },
   });
@@ -47,6 +47,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   if (purchase.product.type === "VIDEO_COURSE") {
     return (
       <VideoCourseWorkspace
+        slug={slug}
         title={purchase.product.title}
         description={purchase.product.description}
         modules={productModules.map((module) => ({
@@ -57,6 +58,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             .map((lesson) => ({
               id: lesson.id,
               title: lesson.title,
+              description: lesson.description ?? "",
               videoUrl: lesson.contentUrl as string,
             })),
         }))}

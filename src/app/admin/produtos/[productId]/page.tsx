@@ -61,6 +61,7 @@ export default async function ProductAdminPage({ params }: ProductAdminPageProps
               id: lesson.id,
               title: lesson.title,
               videoUrl: lesson.contentUrl ?? "",
+              description: lesson.description ?? "",
               orderIndex: lesson.orderIndex,
             })),
           })),

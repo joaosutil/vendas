@@ -7,6 +7,7 @@ import { isAdminUser } from "@/lib/is-admin-user";
 const createLessonSchema = z.object({
   title: z.string().trim().min(3).max(180),
   videoUrl: z.string().url().max(500),
+  description: z.string().trim().max(1200).optional().or(z.literal("")),
 });
 
 export async function POST(request: Request, context: { params: Promise<{ moduleId: string }> }) {
@@ -28,10 +29,11 @@ export async function POST(request: Request, context: { params: Promise<{ module
     data: {
       moduleId,
       title: parsed.data.title,
+      description: parsed.data.description || null,
       contentUrl: parsed.data.videoUrl,
       orderIndex: (lastLesson?.orderIndex ?? -1) + 1,
     },
-    select: { id: true, title: true, contentUrl: true, orderIndex: true },
+    select: { id: true, title: true, description: true, contentUrl: true, orderIndex: true },
   });
 
   return NextResponse.json({ ok: true, lesson });
