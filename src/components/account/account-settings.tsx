@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type AccountSettingsProps = {
   user: {
@@ -12,6 +13,7 @@ type AccountSettingsProps = {
 };
 
 export function AccountSettings({ user }: AccountSettingsProps) {
+  const router = useRouter();
   const [name, setName] = useState(user.name ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl ?? "");
   const [avatarUrlInput, setAvatarUrlInput] = useState(user.avatarUrl ?? "");
@@ -121,6 +123,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
       }
       setAvatarUrl(avatarUrlInput.trim());
       setFeedback("Perfil atualizado com sucesso.");
+      router.refresh();
     } finally {
       setLoading(false);
     }
@@ -156,6 +159,7 @@ export function AccountSettings({ user }: AccountSettingsProps) {
       setAvatarUrlInput(data.avatarUrl);
       setAvatarFile(null);
       setFeedback("Avatar enviado com sucesso.");
+      router.refresh();
     } finally {
       setUploadingAvatar(false);
     }

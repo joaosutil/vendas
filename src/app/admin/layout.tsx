@@ -8,6 +8,9 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }>) {
   const admin = await requireAdmin();
+  const avatarSrc = admin.avatarUrl
+    ? `${admin.avatarUrl}${admin.avatarUrl.includes("?") ? "&" : "?"}v=${admin.updatedAt.getTime()}`
+    : "/brand-icon.png";
 
   return (
     <main className="min-h-screen">
@@ -22,7 +25,7 @@ export default async function AdminLayout({
             <ThemeModeToggle />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={admin.avatarUrl || "/brand-icon.png"}
+              src={avatarSrc}
               alt="Foto de perfil"
               className="h-8 w-8 rounded-full border border-[var(--surface-border)] object-cover"
             />

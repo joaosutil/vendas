@@ -10,6 +10,9 @@ export default async function MembersLayout({
 }>) {
   const user = await requireUser();
   const canAccessAdmin = isAdminUser(user);
+  const avatarSrc = user.avatarUrl
+    ? `${user.avatarUrl}${user.avatarUrl.includes("?") ? "&" : "?"}v=${user.updatedAt.getTime()}`
+    : "/brand-icon.png";
 
   return (
     <main className="min-h-screen">
@@ -26,7 +29,7 @@ export default async function MembersLayout({
             <ThemeModeToggle />
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={user.avatarUrl || "/brand-icon.png"}
+              src={avatarSrc}
               alt="Foto de perfil"
               className="h-8 w-8 rounded-full border border-[var(--surface-border)] object-cover"
             />
