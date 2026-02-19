@@ -113,9 +113,12 @@ export default async function DynamicLandingPage({ params }: LandingRouteProps) 
                   items,
                   backgroundColor: asString(record.backgroundColor),
                   textColor: asString(record.textColor),
-                  animation: (["none", "fade", "slide-up", "zoom"].includes(asString(record.animation))
+                  animation: (
+                    ["none", "fade", "slide-up", "slide-left", "slide-right", "zoom", "flip", "pop"].includes(
+                      asString(record.animation),
+                    )
                     ? asString(record.animation)
-                    : "fade") as "none" | "fade" | "slide-up" | "zoom",
+                    : "fade") as "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "zoom" | "flip" | "pop",
                 };
               })
               .filter(Boolean) as Array<{
@@ -131,7 +134,7 @@ export default async function DynamicLandingPage({ params }: LandingRouteProps) 
                 items: string[];
                 backgroundColor: string;
                 textColor: string;
-                animation: "none" | "fade" | "slide-up" | "zoom";
+                animation: "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "zoom" | "flip" | "pop";
               }>)
           : []
       }

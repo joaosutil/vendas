@@ -3,6 +3,16 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
+type LandingCanvasAnimation =
+  | "none"
+  | "fade"
+  | "slide-up"
+  | "slide-left"
+  | "slide-right"
+  | "zoom"
+  | "flip"
+  | "pop";
+
 type ProductLandingPageProps = {
   title: string;
   badge: string;
@@ -32,7 +42,7 @@ type ProductLandingPageProps = {
     items: string[];
     backgroundColor: string;
     textColor: string;
-    animation: "none" | "fade" | "slide-up" | "zoom";
+    animation: LandingCanvasAnimation;
   }>;
   primaryColor: string;
   secondaryColor: string;
@@ -44,14 +54,21 @@ type ProductLandingPageProps = {
 function Card({
   children,
   animationsEnabled,
+  themeMode,
   delay = 0,
 }: {
   children: React.ReactNode;
   animationsEnabled: boolean;
+  themeMode: "light" | "dark";
   delay?: number;
 }) {
+  const cardClass =
+    themeMode === "dark"
+      ? "rounded-2xl border border-slate-500/45 bg-[linear-gradient(150deg,rgba(15,23,42,0.88),rgba(17,24,39,0.82),rgba(15,23,42,0.9))] p-4 shadow-[0_15px_35px_rgba(2,6,23,0.35)]"
+      : "rounded-2xl border border-white/45 bg-white/75 p-4 shadow-sm";
+
   if (!animationsEnabled) {
-    return <div className="rounded-2xl border border-white/45 bg-white/75 p-4 shadow-sm">{children}</div>;
+    return <div className={cardClass}>{children}</div>;
   }
   return (
     <motion.div
@@ -59,7 +76,7 @@ function Card({
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.35, delay }}
-      className="rounded-2xl border border-white/45 bg-white/75 p-4 shadow-sm"
+      className={cardClass}
     >
       {children}
     </motion.div>
@@ -68,8 +85,13 @@ function Card({
 
 export function ProductLandingPage(props: ProductLandingPageProps) {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [canvasSlides, setCanvasSlides] = useState<Record<string, number>>({});
   const surfaceText = props.themeMode === "dark" ? "#e5e7eb" : "#1f2937";
   const rootBackground = props.themeMode === "dark" ? "#0b1220" : props.secondaryColor;
+  const defaultCanvasBackground =
+    props.themeMode === "dark"
+      ? "linear-gradient(145deg, rgba(15, 23, 42, 0.86), rgba(17, 24, 39, 0.84), rgba(15, 23, 42, 0.9))"
+      : "rgba(255,255,255,0.82)";
   const sectionTitleClass = "text-3xl font-black md:text-4xl";
   const carouselImages = useMemo(
     () => props.carouselImages.filter((image) => image.trim().length > 0),
@@ -89,28 +111,74 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
     [props.blocks],
   );
 
-  const hasCanvasBlocks = canvasBlocks.length > 0;
+  useEffect(() => {
+    const carousels = canvasBlocks.filter((block) => block.type === "carousel" && block.items.length > 1);
+    if (carousels.length === 0) return;
+    const timer = window.setInterval(() => {
+      setCanvasSlides((prev) => {
+        const next = { ...prev };
+        carousels.forEach((block) => {
+          const current = prev[block.id] ?? 0;
+          next[block.id] = (current + 1) % block.items.length;
+        });
+        return next;
+      });
+    }, 4200);
+    return () => window.clearInterval(timer);
+  }, [canvasBlocks]);
 
-  function animationFor(blockAnimation: "none" | "fade" | "slide-up" | "zoom", index: number) {
+  const hasCanvasBlocks = canvasBlocks.length > 0;
+  const normalizedActiveSlide = carouselImages.length > 0 ? activeSlide % carouselImages.length : 0;
+
+  function animationFor(blockAnimation: LandingCanvasAnimation, index: number) {
     if (!props.animationsEnabled || blockAnimation === "none") return {};
+    const transition = { duration: 0.45, delay: index * 0.05 };
     if (blockAnimation === "zoom") {
       return {
         initial: { opacity: 0, scale: 0.96 },
         whileInView: { opacity: 1, scale: 1 },
-        transition: { duration: 0.35, delay: index * 0.04 },
+        transition,
       };
     }
     if (blockAnimation === "slide-up") {
       return {
-        initial: { opacity: 0, y: 24 },
+        initial: { opacity: 0, y: 26 },
         whileInView: { opacity: 1, y: 0 },
-        transition: { duration: 0.35, delay: index * 0.04 },
+        transition,
+      };
+    }
+    if (blockAnimation === "slide-left") {
+      return {
+        initial: { opacity: 0, x: 34 },
+        whileInView: { opacity: 1, x: 0 },
+        transition,
+      };
+    }
+    if (blockAnimation === "slide-right") {
+      return {
+        initial: { opacity: 0, x: -34 },
+        whileInView: { opacity: 1, x: 0 },
+        transition,
+      };
+    }
+    if (blockAnimation === "flip") {
+      return {
+        initial: { opacity: 0, rotateX: -22, y: 18 },
+        whileInView: { opacity: 1, rotateX: 0, y: 0 },
+        transition,
+      };
+    }
+    if (blockAnimation === "pop") {
+      return {
+        initial: { opacity: 0, scale: 0.88 },
+        whileInView: { opacity: 1, scale: [1.02, 1] },
+        transition: { duration: 0.55, delay: index * 0.05 },
       };
     }
     return {
       initial: { opacity: 0 },
       whileInView: { opacity: 1 },
-      transition: { duration: 0.35, delay: index * 0.04 },
+      transition,
     };
   }
 
@@ -131,15 +199,16 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
       }
     >
       {hasCanvasBlocks ? (
-        <section className="mx-auto max-w-6xl space-y-4 px-4 py-10 md:py-14">
+        <section className="mx-auto max-w-6xl space-y-4 px-4 py-10 md:space-y-5 md:py-14">
           {canvasBlocks.map((block, index) => (
             <motion.article
               key={block.id}
               viewport={{ once: true, amount: 0.2 }}
               {...animationFor(block.animation, index)}
-              className="rounded-2xl border border-white/30 p-4 shadow-xl md:p-6"
+              className="group rounded-3xl border p-4 shadow-xl backdrop-blur transition hover:translate-y-[-1px] md:p-6"
               style={{
-                background: block.backgroundColor || "rgba(255,255,255,0.78)",
+                borderColor: props.themeMode === "dark" ? "rgba(148, 163, 184, 0.32)" : "rgba(255,255,255,0.3)",
+                background: block.backgroundColor || defaultCanvasBackground,
                 color: block.textColor || surfaceText,
               }}
             >
@@ -147,11 +216,11 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                 <div className="grid gap-6 md:grid-cols-2 md:items-center">
                   <div>
                     <h1 className="text-3xl leading-tight font-black md:text-5xl">{block.title || props.title}</h1>
-                    {block.text ? <p className="mt-3 text-sm md:text-base">{block.text}</p> : null}
+                    {block.text ? <p className="mt-3 text-sm opacity-95 md:text-base">{block.text}</p> : null}
                     {block.buttonLabel && block.buttonUrl ? (
                       <a
                         href={block.buttonUrl}
-                        className="mt-4 inline-flex rounded-xl px-5 py-3 text-sm font-black text-white"
+                        className="mt-4 inline-flex rounded-xl px-5 py-3 text-sm font-black text-white shadow-lg transition hover:scale-[1.01]"
                         style={{ backgroundColor: props.primaryColor }}
                       >
                         {block.buttonLabel}
@@ -163,7 +232,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                       <iframe src={block.videoUrl} className="h-64 w-full rounded-xl border border-white/25 md:h-80" title={block.title || props.title} allowFullScreen />
                     ) : block.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl object-cover" />
+                      <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl border border-white/20 object-cover" />
                     ) : null}
                   </div>
                 </div>
@@ -203,7 +272,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                   {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
                   <a
                     href={block.buttonUrl || props.ctaUrl}
-                    className="mt-4 inline-flex rounded-xl px-6 py-3 text-sm font-black text-white"
+                    className="mt-4 inline-flex rounded-xl px-6 py-3 text-sm font-black text-white shadow-lg transition hover:scale-[1.02]"
                     style={{ backgroundColor: props.primaryColor }}
                   >
                     {block.buttonLabel || props.ctaLabel}
@@ -216,17 +285,19 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                   {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
                   <ul className="mt-3 space-y-2">
                     {block.items.map((item, idx) => (
-                      <li key={`${block.id}-${idx}`}>✅ {item}</li>
+                      <li key={`${block.id}-${idx}`} className="rounded-lg border border-white/20 bg-white/8 px-3 py-2">✅ {item}</li>
                     ))}
                   </ul>
                 </>
               ) : null}
 
               {block.type === "faq" ? (
-                <>
-                  <h2 className="text-2xl font-black md:text-3xl">{block.title || "Pergunta frequente"}</h2>
+                <details className="rounded-xl border border-white/25 bg-white/8 p-3 open:bg-white/12">
+                  <summary className="cursor-pointer list-none text-2xl font-black md:text-3xl">
+                    {block.title || "Pergunta frequente"}
+                  </summary>
                   <p className="mt-2 text-sm md:text-base">{block.text}</p>
-                </>
+                </details>
               ) : null}
 
               {block.type === "input" ? (
@@ -236,7 +307,11 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                   <div className="flex flex-wrap gap-2">
                     <input
                       placeholder={block.placeholder || "Digite aqui"}
-                      className="min-w-[240px] flex-1 rounded-xl border border-white/35 bg-white/90 px-4 py-3 text-sm text-[#0f172a]"
+                      className={`min-w-[240px] flex-1 rounded-xl border px-4 py-3 text-sm ${
+                        props.themeMode === "dark"
+                          ? "border-slate-500/60 bg-slate-900/80 text-slate-100 placeholder:text-slate-400"
+                          : "border-white/35 bg-white/90 text-[#0f172a]"
+                      }`}
                       readOnly
                     />
                     <button type="button" className="rounded-xl bg-[var(--lp-primary)] px-4 py-3 text-sm font-bold text-white">
@@ -252,7 +327,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                   {block.items.length > 0 ? (
                     <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-black/20 p-2">
                       <motion.div
-                        animate={{ x: `-${activeSlide * 100}%` }}
+                        animate={{ x: `-${(canvasSlides[block.id] ?? 0) * 100}%` }}
                         transition={{ duration: 0.45, ease: "easeInOut" }}
                         className="flex"
                       >
@@ -264,16 +339,44 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                         ))}
                       </motion.div>
                       {block.items.length > 1 ? (
-                        <div className="mt-3 flex justify-center gap-2">
+                        <div className="mt-3 flex items-center justify-between gap-2">
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCanvasSlides((prev) => ({
+                                  ...prev,
+                                  [block.id]: ((prev[block.id] ?? 0) - 1 + block.items.length) % block.items.length,
+                                }))
+                              }
+                              className="rounded-full border border-white/35 bg-white/10 px-2 py-1 text-[11px] font-semibold"
+                            >
+                              Anterior
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCanvasSlides((prev) => ({
+                                  ...prev,
+                                  [block.id]: ((prev[block.id] ?? 0) + 1) % block.items.length,
+                                }))
+                              }
+                              className="rounded-full border border-white/35 bg-white/10 px-2 py-1 text-[11px] font-semibold"
+                            >
+                              Proximo
+                            </button>
+                          </div>
+                          <div className="flex gap-2">
                           {block.items.map((_, idx) => (
                             <button
                               key={`${block.id}-dot-${idx}`}
                               type="button"
-                              onClick={() => setActiveSlide(idx)}
+                              onClick={() => setCanvasSlides((prev) => ({ ...prev, [block.id]: idx }))}
                               aria-label={`Ir para slide ${idx + 1}`}
-                              className={`h-2.5 w-2.5 rounded-full ${idx === activeSlide ? "bg-white" : "bg-white/45"}`}
+                              className={`h-2.5 w-2.5 rounded-full ${(canvasSlides[block.id] ?? 0) === idx ? "bg-white" : "bg-white/45"}`}
                             />
                           ))}
+                          </div>
                         </div>
                       ) : null}
                     </div>
@@ -321,7 +424,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
             </ul>
           </div>
 
-          <Card animationsEnabled={props.animationsEnabled}>
+          <Card animationsEnabled={props.animationsEnabled} themeMode={props.themeMode}>
             {props.heroVideoUrl ? (
               <div className="relative overflow-hidden rounded-xl border border-white/25 shadow-lg">
                 <iframe
@@ -364,7 +467,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
           </div>
           <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/30 bg-black/25 p-2 shadow-2xl">
             <motion.div
-              animate={{ x: `-${activeSlide * 100}%` }}
+              animate={{ x: `-${normalizedActiveSlide * 100}%` }}
               transition={{ duration: 0.45, ease: "easeInOut" }}
               className="flex"
             >
@@ -383,7 +486,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                     type="button"
                     onClick={() => setActiveSlide(idx)}
                     aria-label={`Ir para slide ${idx + 1}`}
-                    className={`h-2.5 w-2.5 rounded-full ${idx === activeSlide ? "bg-white" : "bg-white/45"}`}
+                    className={`h-2.5 w-2.5 rounded-full ${idx === normalizedActiveSlide ? "bg-white" : "bg-white/45"}`}
                   />
                 ))}
               </div>
@@ -397,7 +500,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
           <h2 className={sectionTitleClass}>Conteúdo</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {props.contentSections.map((section, idx) => (
-              <Card key={`${section.title}-${idx}`} animationsEnabled={props.animationsEnabled} delay={idx * 0.04}>
+              <Card key={`${section.title}-${idx}`} animationsEnabled={props.animationsEnabled} themeMode={props.themeMode} delay={idx * 0.04}>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h3 className="text-lg font-bold">{section.title}</h3>
                   {section.type ? (
@@ -422,7 +525,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
           <h2 className={sectionTitleClass}>Depoimentos</h2>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {props.testimonials.map((item, idx) => (
-              <Card key={`${item.name}-${idx}`} animationsEnabled={props.animationsEnabled} delay={idx * 0.05}>
+              <Card key={`${item.name}-${idx}`} animationsEnabled={props.animationsEnabled} themeMode={props.themeMode} delay={idx * 0.05}>
                 <p className="text-sm">“{item.text}”</p>
                 <p className="mt-2 text-xs font-bold opacity-80">{item.name}</p>
               </Card>
@@ -436,7 +539,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
           <h2 className={sectionTitleClass}>Perguntas frequentes</h2>
           <div className="mt-4 space-y-3">
             {props.faq.map((entry, idx) => (
-              <Card key={`${entry.question}-${idx}`} animationsEnabled={props.animationsEnabled} delay={idx * 0.03}>
+              <Card key={`${entry.question}-${idx}`} animationsEnabled={props.animationsEnabled} themeMode={props.themeMode} delay={idx * 0.03}>
                 <p className="font-bold">{entry.question}</p>
                 <p className="mt-1 text-sm opacity-90">{entry.answer}</p>
               </Card>
