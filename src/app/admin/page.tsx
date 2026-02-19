@@ -14,6 +14,12 @@ function parseDate(value: string | undefined, fallback: Date) {
   return Number.isNaN(parsed.getTime()) ? fallback : parsed;
 }
 
+function asDate(value: Date | string) {
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed;
+}
+
 function normalizeMethod(method: string | null | undefined) {
   const raw = (method ?? "").trim().toUpperCase();
   if (!raw) return "DESCONHECIDO";
@@ -63,13 +69,13 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     id: string;
     subject: string;
     status: SupportTicketStatus;
-    lastMessageAt: Date;
+    lastMessageAt: Date | string;
     user: { email: string };
     hasUnread: boolean;
   }> = [];
   let periodPurchases: Array<{
     id: string;
-    createdAt: Date;
+    createdAt: Date | string;
     status: PurchaseStatus;
     paymentMethod: string | null;
     grossAmountCents: number | null;
@@ -85,7 +91,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     email: string;
     role: UserRole;
     active: boolean;
-    createdAt: Date;
+    createdAt: Date | string;
     _count: { purchases: number };
   }> = [];
   let products: Array<{
@@ -166,7 +172,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         }),
       ]);
 
-      const normalizedPeriodPurchases = [...periodPurchasesCached].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      const normalizedPeriodPurchases = [...periodPurchasesCached].sort(
+        (a, b) => asDate(a.createdAt).getTime() - asDate(b.createdAt).getTime(),
+      );
 
       const openTicketIds = openTicketsRaw.map((ticket) => ticket.id);
       const latestMessages = openTicketIds.length
@@ -177,7 +185,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
           })
         : [];
 
-      const latestByTicket = new Map<string, { authorType: string; createdAt: Date }>();
+      const latestByTicket = new Map<string, { authorType: string; createdAt: Date | string }>();
       for (const message of latestMessages) {
         if (!latestByTicket.has(message.ticketId)) {
           latestByTicket.set(message.ticketId, { authorType: message.authorType, createdAt: message.createdAt });
@@ -268,7 +276,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   >();
 
   for (const purchase of periodPurchases) {
-    const day = purchase.createdAt.toISOString().slice(0, 10);
+    const day = asDate(purchase.createdAt).toISOString().slice(0, 10);
     const gross = purchase.grossAmountCents ?? unitPriceCents;
     const method = normalizeMethod(purchase.paymentMethod);
     const net =
@@ -433,7 +441,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         status: ticket.status,
         userEmail: ticket.user.email,
         hasUnread: ticket.hasUnread,
-        lastMessageAt: ticket.lastMessageAt.toISOString(),
+        lastMessageAt: asDate(ticket.lastMessageAt).toISOString(),
       }))}
       users={users.map((entry) => ({
         id: entry.id,
@@ -442,7 +450,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         role: entry.role,
         active: entry.active,
         purchasesCount: entry._count.purchases,
-        createdAt: entry.createdAt.toISOString(),
+        createdAt: asDate(entry.createdAt).toISOString(),
       }))}
       products={products.map((product) => ({
         id: product.id,
