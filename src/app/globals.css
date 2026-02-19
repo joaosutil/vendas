@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --areia: #e0c392;
-  --creme: #f7f6f4;
-  --dourado: #ebd1a4;
-  --carvao: #3b393c;
-  --ink: #0d111c;
-  --cobre: #7d6a5a;
+  --areia: #67c7ff;
+  --creme: #f3f6ff;
+  --dourado: #ffcb73;
+  --carvao: #22304f;
+  --ink: #0f1b3d;
+  --cobre: #4b84b8;
   --background: var(--creme);
   --foreground: var(--carvao);
-  --surface: rgba(255, 255, 255, 0.75);
-  --surface-border: rgba(255, 255, 255, 0.6);
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-border: rgba(117, 153, 215, 0.35);
   --radius-sm: 10px;
   --radius-md: 14px;
   --radius-lg: 18px;
-  --shadow-soft: 0 10px 30px rgba(2, 8, 23, 0.08);
+  --shadow-soft: 0 12px 34px rgba(15, 27, 61, 0.14);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -31,9 +31,10 @@
 
 body {
   background:
-    radial-gradient(circle at 15% 15%, color-mix(in oklab, var(--dourado) 35%, transparent), transparent 35%),
-    radial-gradient(circle at 85% 20%, color-mix(in oklab, var(--areia) 25%, transparent), transparent 35%),
-    linear-gradient(135deg, var(--background) 0%, color-mix(in oklab, var(--background) 85%, #ece7df) 45%, var(--background) 100%);
+    radial-gradient(circle at 12% 14%, rgba(103, 199, 255, 0.34), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(255, 203, 115, 0.28), transparent 30%),
+    radial-gradient(circle at 45% 82%, rgba(75, 132, 184, 0.22), transparent 35%),
+    linear-gradient(136deg, #eef3ff 0%, #f8fbff 42%, #edf2ff 100%);
   color: var(--foreground);
   font-family: var(--font-body), sans-serif;
   text-rendering: optimizeLegibility;

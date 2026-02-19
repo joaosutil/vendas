@@ -3,6 +3,13 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+type LandingCanvasBlock = {
+  id: string;
+  type: "section" | "benefit" | "faq";
+  title: string;
+  text: string;
+};
+
 type ProductBuilderProps = {
   product: {
     id: string;
@@ -111,6 +118,19 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           .join("\n")
       : "O que você recebe|Detalhe o conteúdo principal aqui.",
   );
+  const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [landingBlocks, setLandingBlocks] = useState<LandingCanvasBlock[]>(() => {
+    const initialPairs = Array.isArray(product.landingConfig?.contentSections)
+      ? (product.landingConfig?.contentSections as Array<{ title?: string; text?: string; type?: string }>)
+      : [{ title: "O que você recebe", text: "Detalhe o conteúdo principal aqui.", type: "section" }];
+
+    return initialPairs.map((item, index) => ({
+      id: `block-${index}-${(item.title ?? "secao").toLowerCase().replace(/\s+/g, "-")}`,
+      type: item.type === "benefit" || item.type === "faq" ? item.type : "section",
+      title: item.title ?? "Seção",
+      text: item.text ?? "",
+    }));
+  });
   const landingTemplates = [
     {
       id: "vsl",
@@ -169,6 +189,80 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
       .filter((item) => item.left && item.right);
   }
 
+  function syncSectionsFromBlocks(blocks: LandingCanvasBlock[]) {
+    const serialized = blocks.map((block) => `${block.title}|${block.text}`).join("\n");
+    setLandingSections(serialized);
+  }
+
+  function updateBlock(blockId: string, key: "title" | "text" | "type", value: string) {
+    setLandingBlocks((prev) => {
+      const next = prev.map((block) => (block.id === blockId ? { ...block, [key]: value } : block));
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function addBlock(type: LandingCanvasBlock["type"]) {
+    setLandingBlocks((prev) => {
+      const next: LandingCanvasBlock[] = [
+        ...prev,
+        {
+          id: `block-${crypto.randomUUID()}`,
+          type,
+          title: type === "faq" ? "Pergunta frequente" : type === "benefit" ? "Benefício principal" : "Nova seção",
+          text: "Descreva aqui...",
+        },
+      ];
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function removeBlock(blockId: string) {
+    setLandingBlocks((prev) => {
+      const next = prev.filter((block) => block.id !== blockId);
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function moveBlockUp(blockId: string) {
+    setLandingBlocks((prev) => {
+      const index = prev.findIndex((block) => block.id === blockId);
+      if (index <= 0) return prev;
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function moveBlockDown(blockId: string) {
+    setLandingBlocks((prev) => {
+      const index = prev.findIndex((block) => block.id === blockId);
+      if (index < 0 || index >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[index + 1], next[index]] = [next[index], next[index + 1]];
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function onDropBlock(targetId: string) {
+    if (!draggingBlockId || draggingBlockId === targetId) return;
+    setLandingBlocks((prev) => {
+      const from = prev.findIndex((block) => block.id === draggingBlockId);
+      const to = prev.findIndex((block) => block.id === targetId);
+      if (from < 0 || to < 0) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+    setDraggingBlockId(null);
+  }
+
   function applyTemplate(templateId: (typeof landingTemplates)[number]["id"]) {
     const template = landingTemplates.find((item) => item.id === templateId);
     if (!template) return;
@@ -176,6 +270,17 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     setLandingSubheadline(template.subheadline);
     setLandingBullets(template.bullets);
     setLandingSections(template.sections);
+    setLandingBlocks(
+      template.sections.split("\n").map((line, index) => {
+        const [title, ...rest] = line.split("|");
+        return {
+          id: `tpl-${template.id}-${index}`,
+          type: "section" as const,
+          title: title?.trim() ?? "Seção",
+          text: rest.join("|").trim(),
+        };
+      }),
+    );
     setFeedback(`Template "${template.label}" aplicado.`);
   }
 
@@ -211,10 +316,18 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         question: item.left,
         answer: item.right,
       }));
-      const contentSections = splitPairs(landingSections).map((item) => ({
-        title: item.left,
-        text: item.right,
-      }));
+      const contentSections =
+        landingBlocks.length > 0
+          ? landingBlocks.map((block) => ({
+              title: block.title.trim(),
+              text: block.text.trim(),
+              type: block.type,
+            }))
+          : splitPairs(landingSections).map((item) => ({
+              title: item.left,
+              text: item.right,
+              type: "section",
+            }));
 
       const response = await fetch(`/api/admin/products/${product.id}`, {
         method: "PATCH",
@@ -404,7 +517,73 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           <textarea value={landingCarouselImages} onChange={(e) => setLandingCarouselImages(e.target.value)} rows={5} placeholder="Carrossel de imagens (1 URL por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <textarea value={landingTestimonials} onChange={(e) => setLandingTestimonials(e.target.value)} rows={5} placeholder="Depoimentos: Nome|Texto (1 por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <textarea value={landingFaq} onChange={(e) => setLandingFaq(e.target.value)} rows={5} placeholder="FAQ: Pergunta|Resposta (1 por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-          <textarea value={landingSections} onChange={(e) => setLandingSections(e.target.value)} rows={5} placeholder="Seções: Título|Texto (1 por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm md:col-span-2" />
+          <div className="rounded-xl border border-[var(--dourado)]/40 bg-white p-3 md:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">Canvas de blocos (arraste para reordenar)</p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => addBlock("section")} className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-xs font-semibold">+ Seção</button>
+                <button type="button" onClick={() => addBlock("benefit")} className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-xs font-semibold">+ Benefício</button>
+                <button type="button" onClick={() => addBlock("faq")} className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-xs font-semibold">+ FAQ</button>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              {landingBlocks.map((block, index) => (
+                <article
+                  key={block.id}
+                  draggable
+                  onDragStart={() => setDraggingBlockId(block.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => onDropBlock(block.id)}
+                  className={`rounded-lg border bg-[var(--creme)]/70 p-3 ${draggingBlockId === block.id ? "border-[var(--ink)]" : "border-[var(--dourado)]/40"}`}
+                >
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--carvao)]/80">Bloco {index + 1}</span>
+                    <div className="flex gap-1">
+                      <button type="button" onClick={() => moveBlockUp(block.id)} className="rounded border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold">↑</button>
+                      <button type="button" onClick={() => moveBlockDown(block.id)} className="rounded border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold">↓</button>
+                      <button type="button" onClick={() => removeBlock(block.id)} className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700">Excluir</button>
+                    </div>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-[170px_1fr]">
+                    <select
+                      value={block.type}
+                      onChange={(event) => updateBlock(block.id, "type", event.target.value)}
+                      className="rounded-md border border-[var(--dourado)]/45 bg-white px-2 py-2 text-xs"
+                    >
+                      <option value="section">Seção</option>
+                      <option value="benefit">Benefício</option>
+                      <option value="faq">FAQ</option>
+                    </select>
+                    <input
+                      value={block.title}
+                      onChange={(event) => updateBlock(block.id, "title", event.target.value)}
+                      className="rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                      placeholder="Título do bloco"
+                    />
+                  </div>
+                  <textarea
+                    value={block.text}
+                    onChange={(event) => updateBlock(block.id, "text", event.target.value)}
+                    className="mt-2 w-full rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                    rows={2}
+                    placeholder="Conteúdo do bloco"
+                  />
+                </article>
+              ))}
+              {landingBlocks.length === 0 ? (
+                <p className="rounded-md border border-dashed border-[var(--dourado)]/45 bg-[var(--creme)]/60 p-3 text-xs text-[var(--carvao)]/70">
+                  Nenhum bloco no canvas ainda. Use os botões acima para adicionar.
+                </p>
+              ) : null}
+            </div>
+            <textarea
+              value={landingSections}
+              onChange={(e) => setLandingSections(e.target.value)}
+              rows={3}
+              placeholder="Backup bruto: Seções em formato Título|Texto"
+              className="mt-3 w-full rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2 text-xs"
+            />
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">

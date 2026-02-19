@@ -374,10 +374,12 @@ export function EnterpriseAdminHub({
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5">
+      <div className="relative overflow-hidden rounded-2xl border border-[#7aa5ff55] bg-[linear-gradient(130deg,#0f1b3d_0%,#172955_45%,#0f1b3d_100%)] p-5 text-white shadow-xl">
+        <div className="pointer-events-none absolute -top-12 -right-10 h-36 w-36 rounded-full bg-[#67c7ff33] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-[#ffcb7330] blur-3xl" />
         <h1 className="text-3xl font-bold">Admin Enterprise Hub</h1>
-        <p className="mt-1 text-sm text-[var(--carvao)]/80">Gestão financeira avançada, growth e operações.</p>
-        <p className="mt-1 text-xs text-[var(--carvao)]/70">
+        <p className="mt-1 text-sm text-white/85">Gestão financeira avançada, growth e operações.</p>
+        <p className="mt-1 text-xs text-white/75">
           Insights de IA: OpenRouter quando disponível, com fallback analítico local para nunca parar sua operação.
         </p>
         {analyticsTruncated ? (
@@ -386,27 +388,27 @@ export function EnterpriseAdminHub({
           </p>
         ) : null}
         <form method="get" className="mt-4 grid gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-          <input type="date" name="from" defaultValue={fromValue} className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-          <input type="date" name="to" defaultValue={toValue} className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-          <button type="submit" className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white">
-            Aplicar filtro
-          </button>
+            <input type="date" name="from" defaultValue={fromValue} className="rounded-lg border border-white/35 bg-white/95 px-3 py-2 text-sm text-[var(--ink)]" />
+            <input type="date" name="to" defaultValue={toValue} className="rounded-lg border border-white/35 bg-white/95 px-3 py-2 text-sm text-[var(--ink)]" />
+            <button type="submit" className="rounded-lg bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-white">
+              Aplicar filtro
+            </button>
           <Link href={csvUrl} className="rounded-lg border border-[var(--ink)]/25 bg-white px-4 py-2 text-sm font-semibold text-[var(--ink)]">
             Exportar CSV
           </Link>
         </form>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          <Link prefetch href={quickRanges.d7} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 7d</Link>
-          <Link prefetch href={quickRanges.d14} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 14d</Link>
-          <Link prefetch href={quickRanges.d30} className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 font-semibold">Últimos 30d</Link>
+          <Link prefetch href={quickRanges.d7} className="rounded-md border border-white/30 bg-white/10 px-2 py-1 font-semibold text-white">Últimos 7d</Link>
+          <Link prefetch href={quickRanges.d14} className="rounded-md border border-white/30 bg-white/10 px-2 py-1 font-semibold text-white">Últimos 14d</Link>
+          <Link prefetch href={quickRanges.d30} className="rounded-md border border-white/30 bg-white/10 px-2 py-1 font-semibold text-white">Últimos 30d</Link>
           <button
             type="button"
             onClick={() => setLiveRefresh((v) => !v)}
-            className={`rounded-md border px-2 py-1 font-semibold ${liveRefresh ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-[var(--ink)]/20 bg-white"}`}
+            className={`rounded-md border px-2 py-1 font-semibold ${liveRefresh ? "border-emerald-300 bg-emerald-50 text-emerald-800" : "border-white/30 bg-white/10 text-white"}`}
           >
             Live {liveRefresh ? "ON" : "OFF"}
           </button>
-          <span className="rounded-md border border-[var(--ink)]/20 bg-white px-2 py-1 text-[11px]">
+          <span className="rounded-md border border-white/30 bg-white/10 px-2 py-1 text-[11px] text-white">
             Atualizado: {lastRefreshAt.toLocaleTimeString("pt-BR")}
           </span>
         </div>
@@ -699,9 +701,9 @@ export function EnterpriseAdminHub({
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4">
-      <p className="text-xs text-[var(--carvao)]/75">{label}</p>
-      <p className="mt-1 text-2xl font-black">{value}</p>
+    <div className="interactive-lift rounded-xl border border-[#7aa5ff55] bg-[linear-gradient(140deg,#ffffffd9_0%,#f6fbffde_100%)] p-4 shadow-sm">
+      <p className="text-xs font-semibold tracking-wide text-[var(--carvao)]/75 uppercase">{label}</p>
+      <p className="mt-1 text-2xl font-black text-[var(--ink)]">{value}</p>
     </div>
   );
 }

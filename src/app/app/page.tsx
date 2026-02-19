@@ -9,7 +9,10 @@ export default async function DashboardPage() {
     where: { userId: user.id, status: "ACTIVE" },
     include: {
       product: {
-        include: {
+        select: {
+          slug: true,
+          title: true,
+          type: true,
           modules: {
             select: {
               id: true,
@@ -51,6 +54,32 @@ export default async function DashboardPage() {
     acc[productId] = (acc[productId] ?? 0) + 1;
     return acc;
   }, {});
+  const ebookStates = await prisma.ebookReaderState.findMany({
+    where: {
+      userId: user.id,
+      productId: { in: uniquePurchases.map((purchase) => purchase.productId) },
+    },
+    select: {
+      productId: true,
+      scrollProgress: true,
+      completedModules: true,
+      readChapters: true,
+    },
+  });
+  const ebookStateByProduct = new Map(ebookStates.map((state) => [state.productId, state]));
+
+  const totalCompletedLessons = uniquePurchases.reduce((acc, purchase) => {
+    const totalLessons = purchase.product.modules.reduce((sum, module) => sum + module._count.lessons, 0);
+    if (purchase.product.type === "EBOOK") {
+      const ebookState = ebookStateByProduct.get(purchase.productId);
+      if (!ebookState) return acc;
+      const moduleCount = Math.max(purchase.product.modules.length, 1);
+      const moduleProgress = Math.round((ebookState.completedModules.length / moduleCount) * 100);
+      const effective = Math.max(moduleProgress, ebookState.scrollProgress);
+      return acc + Math.round((effective / 100) * 10);
+    }
+    return acc + Math.min(progressByProduct[purchase.productId] ?? 0, totalLessons);
+  }, 0);
 
   return (
     <section className="space-y-6">
@@ -71,7 +100,7 @@ export default async function DashboardPage() {
           </div>
           <div className="rounded-xl border border-[var(--dourado)]/35 bg-white/85 p-3 shadow-sm">
             <p className="text-xs text-[var(--carvao)]/70">Aulas concluídas</p>
-            <p className="text-3xl leading-none font-black">{progressRows.length}</p>
+            <p className="text-3xl leading-none font-black">{totalCompletedLessons}</p>
           </div>
           <div className="rounded-xl border border-[var(--dourado)]/35 bg-white/85 p-3 shadow-sm">
             <p className="text-xs text-[var(--carvao)]/70">Atalhos rápidos</p>
@@ -95,14 +124,28 @@ export default async function DashboardPage() {
         ) : (
           uniquePurchases.map((purchase) => {
             const totalLessons = purchase.product.modules.reduce((acc, module) => acc + module._count.lessons, 0);
-            const completedLessons = progressByProduct[purchase.productId] ?? 0;
-            const progressPercent = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+            const ebookState = ebookStateByProduct.get(purchase.productId);
+            const completedLessons =
+              purchase.product.type === "EBOOK"
+                ? (ebookState?.readChapters.length ?? 0)
+                : (progressByProduct[purchase.productId] ?? 0);
+            const progressPercent =
+              purchase.product.type === "EBOOK"
+                ? Math.max(
+                    ebookState?.scrollProgress ?? 0,
+                    purchase.product.modules.length
+                      ? Math.round(((ebookState?.completedModules.length ?? 0) / purchase.product.modules.length) * 100)
+                      : 0,
+                  )
+                : (totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0);
             return (
               <article key={purchase.id} className="group relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="pointer-events-none absolute -top-8 -right-8 h-20 w-20 rounded-full bg-[var(--dourado)]/30 blur-2xl" />
                 <h2 className="relative text-lg leading-tight font-bold">{purchase.product.title}</h2>
                 <p className="relative mt-1 text-sm text-[var(--carvao)]/75">
-                  {totalLessons > 0
+                  {purchase.product.type === "EBOOK"
+                    ? `Leitura concluída: ${progressPercent}%`
+                    : totalLessons > 0
                     ? `${completedLessons}/${totalLessons} aulas concluídas (${progressPercent}%)`
                     : "Produto sem aulas cadastradas ainda"}
                 </p>
