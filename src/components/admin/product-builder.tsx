@@ -291,6 +291,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [dragOverBlockId, setDragOverBlockId] = useState<string | null>(null);
   const [layerSearch, setLayerSearch] = useState("");
+  const [readerTheme, setReaderTheme] = useState<"light" | "dark" | "reading">("light");
   const [templateNicheFilter, setTemplateNicheFilter] = useState("all");
   const [stageGridEnabled, setStageGridEnabled] = useState(true);
   const [stageSnapEnabled, setStageSnapEnabled] = useState(true);
@@ -416,6 +417,24 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const selectedBlock = landingBlocks.find((block) => block.id === selectedBlockId) ?? landingBlocks[0] ?? null;
 
   useEffect(() => {
+    const root = document.documentElement;
+    const readTheme = () => {
+      const current = root.getAttribute("data-reader-theme");
+      if (current === "dark" || current === "reading" || current === "light") {
+        setReaderTheme(current);
+      } else {
+        setReaderTheme("light");
+      }
+    };
+    readTheme();
+
+    const observer = new MutationObserver(readTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ["data-reader-theme"] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!landingBlocks.length) {
       if (selectedBlockId !== null) setSelectedBlockId(null);
       return;
@@ -435,7 +454,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     return "Outro";
   }, [type]);
 
-  const builderIsDark = landingThemeMode === "dark";
+  const builderIsDark = landingThemeMode === "dark" || readerTheme === "dark";
 
   const filteredBlocks = useMemo(() => {
     const query = layerSearch.trim().toLowerCase();
@@ -1039,7 +1058,11 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         </button>
       </section>
 
-      <section className="overflow-hidden rounded-3xl border border-white/70 bg-white/80 shadow-[0_20px_70px_rgba(10,20,45,0.16)] backdrop-blur">
+      <section
+        className={`overflow-hidden rounded-3xl border shadow-[0_20px_70px_rgba(10,20,45,0.16)] backdrop-blur ${
+          builderIsDark ? "border-slate-600/65 bg-slate-950/85" : "border-white/70 bg-white/80"
+        }`}
+      >
         <div
           className={`p-4 md:p-5 ${
             builderIsDark
@@ -1333,8 +1356,9 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
                       : "border-[var(--dourado)]/35 hover:border-[var(--ink)]/35 hover:bg-white"
                   } ${dragOverBlockId === block.id && draggingBlockId !== block.id ? "ring-2 ring-sky-400/70" : ""}`}
                   style={{
-                    backgroundColor: block.backgroundColor || (builderIsDark ? "rgba(15,23,42,0.72)" : "rgba(255,255,255,0.95)"),
-                    color: block.textColor || undefined,
+                    backgroundColor: builderIsDark ? "rgba(15,23,42,0.78)" : block.backgroundColor || "rgba(255,255,255,0.95)",
+                    color: builderIsDark ? block.textColor || "#e2e8f0" : block.textColor || undefined,
+                    boxShadow: builderIsDark && block.backgroundColor ? `inset 4px 0 0 ${block.backgroundColor}` : undefined,
                   }}
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
