@@ -8,23 +8,23 @@ const checkoutUrl = process.env.NEXT_PUBLIC_CAKTO_CHECKOUT_URL ?? "https://pay.c
 
 const receivesSlides = [
   {
-    title: "Guia principal (PDF)",
-    text: "Leitura rápida e prática, com exemplos e rotina simples de aplicação.",
+    title: "Guia principal em PDF",
+    text: "Material objetivo, com leitura organizada para sair do caos mental sem enrolação.",
     icon: "📘",
   },
   {
-    title: "Plano de 7 dias",
-    text: "Passo a passo para sair da paralisia e entrar em execução com clareza.",
+    title: "Plano tático de 7 dias",
+    text: "Sequência clara de ações para reduzir ansiedade e recuperar foco com constância.",
     icon: "🗓️",
   },
   {
-    title: "Exercícios guiados",
-    text: "Sessões curtas, replicáveis e pensadas para o mundo real.",
+    title: "Exercícios rápidos guiados",
+    text: "Práticas curtas para usar em momentos de pico, inclusive no trabalho e no celular.",
     icon: "🎧",
   },
   {
-    title: "Checklists e templates",
-    text: "Material pronto para salvar no celular e usar no dia a dia.",
+    title: "Checklist e templates",
+    text: "Ferramentas visuais para você executar sem depender de motivação.",
     icon: "✅",
   },
 ];
@@ -32,25 +32,25 @@ const receivesSlides = [
 const testimonials = [
   {
     name: "Aline M.",
-    text: "Eu vivia no modo alerta. O plano de 7 dias me deu uma direção concreta.",
+    text: "Eu estava sobrecarregada. O plano de 7 dias me devolveu organização mental.",
   },
   {
     name: "Rafael C.",
-    text: "Consegui organizar minha cabeça sem linguagem complicada. Material muito direto.",
+    text: "Direto ao ponto. Foi o primeiro material que eu realmente consegui aplicar.",
   },
   {
     name: "Bianca T.",
-    text: "As técnicas rápidas me ajudaram nos momentos de pico. Uso quase todo dia.",
+    text: "As técnicas curtas salvaram meus momentos de crise no dia a dia.",
   },
 ];
 
 const modules = [
-  "Módulo 1: Entendendo o ciclo da ansiedade (sem enrolação)",
-  "Módulo 2: Técnicas rápidas para momentos de pico",
-  "Módulo 3: Como quebrar o excesso de pensamento (ruminação)",
-  "Módulo 4: Rotina mental: foco, sono e organização",
+  "Módulo 1: Entendendo o ciclo da ansiedade",
+  "Módulo 2: Técnicas rápidas para picos emocionais",
+  "Módulo 3: Como reduzir ruminação e excesso de pensamento",
+  "Módulo 4: Rotina de foco, sono e energia mental",
   "Módulo 5: Plano de 7 dias (aplicação guiada)",
-  "Módulo 6: Manutenção: como não voltar pro zero",
+  "Módulo 6: Manutenção para não voltar ao zero",
 ];
 
 function SessionTimer() {
@@ -78,9 +78,9 @@ function SessionTimer() {
   const seconds = String(secondsLeft % 60).padStart(2, "0");
 
   return (
-    <div className="glass-card rounded-xl p-3 text-sm text-[var(--ink)]">
-      <p className="font-semibold">Sua condição de lançamento está reservada por:</p>
-      <p className="mt-1 text-2xl font-black tracking-wider">
+    <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-sm text-white backdrop-blur">
+      <p className="font-semibold text-white/85">Condição especial reservada por:</p>
+      <p className="mt-1 text-3xl leading-none font-black tracking-[0.18em]">
         {minutes}:{seconds}
       </p>
     </div>
@@ -99,15 +99,15 @@ function CarouselCards() {
 
   return (
     <div className="relative mt-8">
-      <div className="overflow-hidden rounded-2xl">
+      <div className="overflow-hidden rounded-3xl border border-white/50 bg-white/65 p-2 backdrop-blur">
         <motion.div
           className="flex"
           animate={{ x: `-${index * 100}%` }}
           transition={{ duration: 0.55, ease: "easeInOut" }}
         >
           {receivesSlides.map((slide) => (
-            <article key={slide.title} className="w-full shrink-0 px-1">
-              <div className="glass-card shine-overlay rounded-2xl p-6">
+            <article key={slide.title} className="w-full shrink-0 p-2">
+              <div className="rounded-2xl border border-white/65 bg-[var(--creme)]/90 p-6">
                 <p className="text-2xl">{slide.icon}</p>
                 <h3 className="mt-3 text-xl font-bold">{slide.title}</h3>
                 <p className="mt-2 text-sm text-[var(--carvao)]/85">{slide.text}</p>
@@ -122,7 +122,7 @@ function CarouselCards() {
             key={dot}
             type="button"
             onClick={() => setIndex(dot)}
-            className={`h-2.5 w-2.5 rounded-full transition ${dot === index ? "bg-[var(--ink)]" : "bg-[var(--dourado)]/60"}`}
+            className={`h-2.5 w-8 rounded-full transition ${dot === index ? "bg-[var(--ink)]" : "bg-[var(--dourado)]/60"}`}
             aria-label={`slide-${dot + 1}`}
           />
         ))}
@@ -143,8 +143,8 @@ function Testimonials() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-18">
-      <h2 className="text-3xl font-bold md:text-4xl">Depoimentos</h2>
-      <div className="relative mt-6 h-44 overflow-hidden rounded-2xl md:h-36">
+      <h2 className="text-3xl font-bold md:text-4xl">Quem aplicou, sentiu diferença</h2>
+      <div className="relative mt-6 h-44 overflow-hidden rounded-2xl border border-white/60 bg-white/70 md:h-36">
         {testimonials.map((item, i) => (
           <motion.article
             key={item.name}
@@ -155,7 +155,7 @@ function Testimonials() {
               scale: i === index ? 1 : 0.99,
             }}
             transition={{ duration: 0.4 }}
-            className="glass-card absolute inset-0 rounded-2xl p-6"
+            className="absolute inset-0 p-6"
           >
             <p className="text-base md:text-lg">“{item.text}”</p>
             <p className="mt-3 text-sm font-semibold text-[var(--carvao)]/80">{item.name}</p>
@@ -167,10 +167,25 @@ function Testimonials() {
 }
 
 export default function AnsiedadeLandingPage() {
+  const [variant, setVariant] = useState("a");
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("v") ?? "a";
+    const raf = window.requestAnimationFrame(() => {
+      setVariant(value.toLowerCase());
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, []);
+  const isVariantB = variant === "b";
+
+  const heroTitle = isVariantB ? "Ansiedade no controle, sem viver no piloto automático" : "Como Derrotar a Ansiedade";
+  const heroSubtitle = isVariantB
+    ? "Estratégia prática para acalmar a mente e recuperar sua energia mental no dia a dia"
+    : "sem depender de força de vontade o tempo inteiro";
+
   const menu = useMemo(
     () => [
-      { label: "O que você recebe", href: "#recebe" },
-      { label: "Conteúdo", href: "#conteudo" },
+      { label: "Você recebe", href: "#recebe" },
+      { label: "Módulos", href: "#conteudo" },
       { label: "Bônus", href: "#bonus" },
       { label: "Oferta", href: "#oferta" },
       { label: "FAQ", href: "#faq" },
@@ -179,58 +194,57 @@ export default function AnsiedadeLandingPage() {
   );
 
   return (
-    <main className="relative overflow-hidden text-[var(--carvao)]">
-      <div className="pointer-events-none absolute inset-0 -z-10 animated-mesh" />
-      <div className="pointer-events-none absolute top-24 left-8 -z-10 h-28 w-28 rounded-full bg-[var(--dourado)]/35 blur-2xl soft-float" />
-      <div className="pointer-events-none absolute top-60 right-10 -z-10 h-36 w-36 rounded-full bg-[var(--cobre)]/20 blur-3xl soft-float-delayed" />
+    <main className="relative overflow-hidden pb-24 text-[var(--carvao)] md:pb-0">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_14%_12%,rgba(235,209,164,0.46),transparent_34%),radial-gradient(circle_at_86%_18%,rgba(125,106,90,0.2),transparent_31%),linear-gradient(140deg,#f7f4ef_0%,#efe7dc_46%,#f8f6f2_100%)]" />
+      <div className="pointer-events-none absolute top-20 left-8 -z-10 h-40 w-40 rounded-full bg-[var(--dourado)]/35 blur-3xl" />
+      <div className="pointer-events-none absolute top-52 right-10 -z-10 h-52 w-52 rounded-full bg-[var(--cobre)]/20 blur-3xl" />
 
-      <header className="sticky top-0 z-30 border-b border-white/40 bg-[var(--creme)]/70 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-white/50 bg-[var(--creme)]/76 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <p className="text-sm font-semibold md:text-base">Marketing Digital Top</p>
+          <p className="text-sm font-semibold tracking-tight md:text-base">Marketing Digital Top</p>
           <nav className="hidden gap-5 text-sm md:flex">
             {menu.map((item) => (
-              <a key={item.href} href={item.href} className="hover:text-[var(--ink)]">
+              <a key={item.href} href={item.href} className="transition hover:text-[var(--ink)]">
                 {item.label}
               </a>
             ))}
           </nav>
           <Link
             href="/login"
-            className="rounded-full border border-[var(--ink)]/20 px-4 py-2 text-xs font-bold hover:bg-[var(--ink)] hover:text-white md:text-sm"
+            className="rounded-full border border-[var(--ink)]/20 px-4 py-2 text-xs font-bold transition hover:bg-[var(--ink)] hover:text-white md:text-sm"
           >
             Acessar membros
           </Link>
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 pt-12 pb-18 md:grid-cols-2 md:pt-18">
+      <section className="mx-auto grid max-w-6xl items-center gap-8 px-4 pt-14 pb-18 md:grid-cols-[1.05fr_0.95fr] md:pt-20">
         <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <span className="inline-flex rounded-full border border-[var(--dourado)] bg-white/70 px-3 py-1 text-xs font-bold tracking-wide">
-            ⭐ Preço especial de lançamento: R$19,90
+          <span className="inline-flex rounded-full border border-[var(--dourado)] bg-white/80 px-3 py-1 text-xs font-black tracking-[0.08em] text-[var(--ink)] uppercase">
+            Oferta de lançamento · R$19,90
           </span>
-          <h1 className="mt-5 text-4xl leading-tight font-black md:text-6xl">
-            Como Derrotar a Ansiedade
-            <span className="mt-2 block text-xl font-semibold text-[var(--carvao)]/80 md:text-2xl">
-              na prática, no dia a dia
+          <h1 className="mt-5 text-4xl leading-[1.04] font-black md:text-6xl">
+            {heroTitle}
+            <span className="mt-3 block text-xl leading-snug font-semibold text-[var(--carvao)]/80 md:text-2xl">
+              {heroSubtitle}
             </span>
           </h1>
-          <p className="mt-4 max-w-xl text-base text-[var(--carvao)]/85 md:text-lg">
-            Estratégias simples para reduzir a sensação de ansiedade, recuperar foco e construir uma rotina mental mais
-            leve, sem papo complicado.
+          <p className="mt-5 max-w-xl text-base text-[var(--carvao)]/86 md:text-lg">
+            Um método direto para acalmar a mente, voltar a agir e construir uma rotina emocionalmente mais estável em poucos minutos por dia.
           </p>
-          <ul className="mt-5 space-y-2 text-sm md:text-base">
-            <li>✅ Técnicas rápidas para momentos de pico</li>
-            <li>✅ Plano prático de 7 dias (passo a passo)</li>
-            <li>✅ Exercícios guiados (curtos)</li>
-            <li>✅ Checklists e materiais pra imprimir/salvar</li>
+          <ul className="mt-6 space-y-2 text-sm md:text-base">
+            <li>✅ Técnicas rápidas para interrupção de picos</li>
+            <li>✅ Plano guiado de 7 dias, sem complicação</li>
+            <li>✅ Estrutura prática para foco, sono e consistência</li>
+            <li>✅ Material de apoio para executar no celular</li>
           </ul>
           <a
             href="#oferta"
-            className="mt-7 inline-flex w-full max-w-sm items-center justify-center rounded-xl bg-[var(--ink)] px-6 py-4 text-center text-lg font-black text-white spot-glow transition hover:scale-[1.02]"
+            className="mt-8 inline-flex w-full max-w-sm items-center justify-center rounded-xl bg-[var(--ink)] px-6 py-4 text-center text-lg font-black text-white transition hover:scale-[1.02]"
           >
-            Quero ver a oferta de R$19,90
+            Quero liberar meu acesso agora
           </a>
-          <p className="mt-2 text-sm text-[var(--carvao)]/75">Veja tudo que entra hoje e libere em menos de 2 minutos.</p>
+          <p className="mt-2 text-sm text-[var(--carvao)]/75">Liberação imediata após pagamento.</p>
         </motion.div>
 
         <motion.div
@@ -239,48 +253,48 @@ export default function AnsiedadeLandingPage() {
           transition={{ duration: 0.65, delay: 0.15 }}
           className="relative"
         >
-          <div className="glass-card relative rounded-3xl p-7 shadow-2xl">
-            <div className="absolute top-6 right-6 rounded-full bg-[var(--ink)] px-3 py-1 text-xs font-bold text-white">
-              LANÇAMENTO
+          <div className="relative overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(135deg,#101726_0%,#1e2d4a_52%,#0f1728_100%)] p-7 text-white shadow-2xl">
+            <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-[#f0b86d]/35 blur-2xl" />
+            <div className="absolute top-6 right-6 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-black tracking-[0.08em]">
+              GUIA PRÁTICO
             </div>
-            <motion.div
-              whileHover={{ rotateY: -8, rotateX: 6, scale: 1.03 }}
-              transition={{ type: "spring", stiffness: 160, damping: 16 }}
-              className="mx-auto max-w-xs rounded-2xl border border-[var(--dourado)] bg-gradient-to-b from-[#f6deba] to-[#d6b07f] p-6 shadow-2xl"
-            >
-              <p className="text-xs font-bold tracking-[0.2em] text-[var(--ink)]/70">GUIA PRATICO</p>
-              <h2 className="mt-3 text-3xl leading-tight font-black text-[var(--ink)]">Como Derrotar a Ansiedade</h2>
-              <p className="mt-3 text-sm text-[var(--ink)]/85">Aplicação real para mente acelerada.</p>
-            </motion.div>
+            <p className="text-xs tracking-[0.2em] text-white/75 uppercase">Método aplicado</p>
+            <h2 className="mt-3 max-w-xs text-4xl leading-[1.03] font-black">Como Derrotar a Ansiedade</h2>
+            <p className="mt-3 max-w-sm text-sm text-white/80">
+              Estratégias realistas para interromper ansiedade e retomar direção.
+            </p>
             <div className="mt-6 grid grid-cols-2 gap-3 text-xs md:text-sm">
-              <div className="rounded-xl border border-[var(--dourado)]/40 bg-white/60 p-3">
+              <div className="rounded-xl border border-white/20 bg-white/8 p-3">
                 <p className="font-semibold">Formato</p>
-                <p>PDF + bônus práticos</p>
+                <p className="text-white/80">PDF + bônus</p>
               </div>
-              <div className="rounded-xl border border-[var(--dourado)]/40 bg-white/60 p-3">
-                <p className="font-semibold">Liberação</p>
-                <p>Imediata</p>
+              <div className="rounded-xl border border-white/20 bg-white/8 p-3">
+                <p className="font-semibold">Acesso</p>
+                <p className="text-white/80">Imediato</p>
               </div>
+            </div>
+            <div className="mt-6 rounded-xl border border-white/20 bg-white/8 p-3 text-sm">
+              ⚡ Aplicação rápida para rotina corrida.
             </div>
           </div>
         </motion.div>
       </section>
 
       <section id="recebe" className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-3xl font-bold md:text-4xl">O pacote completo pra você aplicar hoje</h2>
+        <h2 className="text-3xl font-bold md:text-4xl">Tudo que você recebe no acesso</h2>
         <CarouselCards />
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-3xl font-bold md:text-4xl">Pra quem é esse guia</h2>
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
+        <h2 className="text-3xl font-bold md:text-4xl">Pra quem esse guia foi feito</h2>
+        <div className="mt-7 grid gap-3 md:grid-cols-2">
           {[
-            "Você sente a mente acelerada mesmo quando tá tudo bem",
-            "Você trava pra começar coisas simples",
+            "Você sente a mente acelerada com frequência",
+            "Você trava até para tarefas simples",
             "Você pensa demais antes de dormir",
-            "Você vive no modo alerta",
-            "Você quer algo que funcione no mundo real, sem teoria demais",
-            "Você precisa de um plano simples e repetível",
+            "Você quer reduzir a sensação constante de alerta",
+            "Você busca clareza prática, não teoria excessiva",
+            "Você precisa de uma rotina simples para manter resultado",
           ].map((item, index) => (
             <motion.div
               key={item}
@@ -288,7 +302,7 @@ export default function AnsiedadeLandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, amount: 0.35 }}
               transition={{ delay: index * 0.05 }}
-              className="glass-card rounded-xl p-4"
+              className="rounded-xl border border-white/65 bg-white/72 p-4"
             >
               ✅ {item}
             </motion.div>
@@ -296,34 +310,69 @@ export default function AnsiedadeLandingPage() {
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <h2 className="text-3xl font-bold md:text-4xl">Antes e depois da aplicação</h2>
+        <div className="mt-7 grid gap-4 md:grid-cols-2">
+          <motion.article
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            className="rounded-2xl border border-red-200 bg-red-50/80 p-5"
+          >
+            <p className="text-xs font-black tracking-[0.08em] text-red-700 uppercase">Antes</p>
+            <ul className="mt-3 space-y-2 text-sm text-red-900/90 md:text-base">
+              <li>• Mente acelerada o dia inteiro</li>
+              <li>• Dificuldade de iniciar tarefas simples</li>
+              <li>• Ruminação e cansaço mental constante</li>
+              <li>• Sensação de estar sempre atrasado</li>
+            </ul>
+          </motion.article>
+          <motion.article
+            initial={{ opacity: 0, y: 10 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ delay: 0.08 }}
+            className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5"
+          >
+            <p className="text-xs font-black tracking-[0.08em] text-emerald-700 uppercase">Depois</p>
+            <ul className="mt-3 space-y-2 text-sm text-emerald-900/90 md:text-base">
+              <li>• Mais clareza para decidir e agir</li>
+              <li>• Rotina simples para reduzir picos emocionais</li>
+              <li>• Menos sobrecarga mental no fim do dia</li>
+              <li>• Sensação real de progresso semanal</li>
+            </ul>
+          </motion.article>
+        </div>
+      </section>
+
       <section id="conteudo" className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-3xl font-bold md:text-4xl">Conteúdo por módulos (rápido de consumir)</h2>
-        <div className="mt-8 border-l-2 border-[var(--dourado)] pl-4 md:pl-6">
+        <h2 className="text-3xl font-bold md:text-4xl">Módulos diretos ao ponto</h2>
+        <div className="mt-8 grid gap-3 md:grid-cols-2">
           {modules.map((item, index) => (
-            <motion.p
+            <motion.div
               key={item}
-              initial={{ opacity: 0, x: -10 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ delay: index * 0.07 }}
-              className="mb-4 rounded-xl border border-white/60 bg-white/65 p-3"
+              initial={{ opacity: 0, y: 10 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.25 }}
+              transition={{ delay: index * 0.04 }}
+              className="rounded-xl border border-white/65 bg-white/72 p-4"
             >
-              {item}
-            </motion.p>
+              <p className="font-semibold">{item}</p>
+            </motion.div>
           ))}
         </div>
-        <p className="text-sm text-[var(--carvao)]/75">Conteúdo educacional. Não substitui acompanhamento profissional.</p>
+        <p className="mt-4 text-sm text-[var(--carvao)]/75">Conteúdo educacional. Não substitui suporte clínico individual.</p>
       </section>
 
       <section id="bonus" className="mx-auto max-w-6xl px-4 py-16">
-        <h2 className="text-3xl font-bold md:text-4xl">Bônus pra acelerar seus resultados (incluídos hoje)</h2>
+        <h2 className="text-3xl font-bold md:text-4xl">Bônus que aceleram execução</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {[
-            "🎁 Kit SOS (1 página) pra momentos de pico",
-            "🎁 Checklist de hábitos que diminuem a carga mental",
-            "🎁 Planner semanal simples (imprimível)",
+            "🎁 Kit SOS para momentos de pico",
+            "🎁 Checklist anti-mente-lotada",
+            "🎁 Planner semanal simples",
           ].map((item) => (
-            <motion.div key={item} whileHover={{ y: -6 }} className="glass-card shine-overlay rounded-2xl p-5">
+            <motion.div key={item} whileHover={{ y: -6 }} className="rounded-2xl border border-white/60 bg-white/72 p-5">
               <p className="font-semibold">{item}</p>
             </motion.div>
           ))}
@@ -333,86 +382,65 @@ export default function AnsiedadeLandingPage() {
       <Testimonials />
 
       <section id="oferta" className="mx-auto max-w-6xl px-4 py-16">
-        <div className="relative overflow-hidden rounded-3xl border border-[var(--dourado)]/70 bg-[var(--ink)] p-6 text-white shadow-2xl md:p-10">
-          <div className="shine-overlay absolute inset-0 opacity-25" />
-          <p className="relative -mx-2 mb-7 rotate-[-1deg] rounded-md bg-[var(--dourado)] px-4 py-2 text-center text-xs font-black tracking-[0.08em] text-[var(--ink)] md:text-sm">
-            OFERTA DE LANÇAMENTO ATIVA HOJE
-          </p>
-
+        <div className="relative overflow-hidden rounded-3xl border border-[#b68b4e]/65 bg-[linear-gradient(140deg,#080f1a_0%,#101c31_50%,#0a1221_100%)] p-7 text-white shadow-2xl md:p-10">
+          <div className="absolute -top-20 right-0 h-56 w-56 rounded-full bg-[#e0b273]/20 blur-3xl" />
           <div className="relative grid gap-8 md:grid-cols-2">
             <div>
-              <h2 className="text-3xl leading-tight font-black md:text-5xl">Liberar acesso agora por um preço simbólico</h2>
+              <p className="inline-block rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-black tracking-[0.08em] uppercase">
+                Oferta ativa
+              </p>
+              <h2 className="mt-4 text-3xl leading-tight font-black md:text-5xl">
+                Libere acesso completo por R$19,90
+              </h2>
               <p className="mt-3 text-white/80">
-                Tudo para você aplicar no dia a dia e construir uma rotina mental mais leve.
+                Pagamento seguro e liberação automática para começar hoje.
               </p>
-              <p className="mt-4 inline-block rounded-lg bg-[#ad7f3f] px-3 py-2 text-xs font-bold text-white md:text-sm">
-                🔥 LANÇAMENTO: R$19,90 por tempo limitado
-              </p>
-              <p className="mt-4 text-6xl font-black md:text-7xl">R$ 19,90</p>
-              <p className="mt-2 text-sm text-white/85">Pagamento seguro via Cakto (PIX / Cartão / Boleto)</p>
-              <span className="mt-3 inline-block rounded-full border border-[var(--dourado)] px-3 py-1 text-xs font-bold">
-                ✅ Menos que um lanche
-              </span>
+              <p className="mt-5 text-6xl leading-none font-black md:text-7xl">R$ 19,90</p>
+              <p className="mt-2 text-sm text-white/85">PIX • Cartão • Boleto</p>
 
               <a
                 href={checkoutUrl}
                 className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white px-6 py-4 text-center text-lg font-black text-[var(--ink)] transition hover:scale-[1.02]"
               >
-                QUERO MEU ACESSO POR R$19,90
+                QUERO MEU ACESSO AGORA
               </a>
-              <p className="mt-2 text-sm text-white/80">Leva menos de 2 minutos ✅</p>
+              <p className="mt-2 text-sm text-white/80">Leva menos de 2 minutos.</p>
             </div>
 
             <div>
-              <h3 className="text-xl font-bold">O que entra no seu acesso:</h3>
+              <h3 className="text-xl font-bold">Seu acesso inclui:</h3>
               <ul className="mt-3 space-y-2 text-sm text-white/90 md:text-base">
-                <li>✅ Guia completo (PDF)</li>
+                <li>✅ Guia principal em PDF</li>
                 <li>✅ Plano prático de 7 dias</li>
-                <li>✅ Exercícios guiados (curtos e repetíveis)</li>
-                <li>✅ Checklists + templates</li>
+                <li>✅ Exercícios rápidos guiados</li>
+                <li>✅ Checklist e templates</li>
               </ul>
-              <p className="mt-5 text-sm font-bold text-[var(--dourado)]">Bônus inclusos hoje sem custo:</p>
-              <ul className="mt-2 space-y-1 text-sm text-white/85">
-                <li>🎁 Kit SOS para momentos de pico</li>
-                <li>🎁 Checklist anti-mente-lotada</li>
-                <li>🎁 Planner semanal simples</li>
-              </ul>
-              <div className="mt-5 rounded-xl border border-white/25 bg-white/8 p-3 text-sm">
-                🛡️ Garantia de 7 dias. Se não for pra você, solicite reembolso dentro do prazo da plataforma.
+              <div className="mt-5 rounded-xl border border-white/20 bg-white/8 p-3 text-sm">
+                🛡️ Garantia de 7 dias conforme a política da plataforma.
               </div>
               <div className="mt-4">
                 <SessionTimer />
               </div>
             </div>
           </div>
-
-          <div className="relative mt-7 grid gap-2 text-xs text-white/85 md:grid-cols-4">
-            <p>🔒 Checkout seguro</p>
-            <p>⚡ Liberação automática</p>
-            <p>📱 Acesso no celular</p>
-            <p>✅ Garantia 7 dias</p>
-          </div>
-
-          <p className="relative mt-6 text-sm text-white/90 md:text-base">
-            Você não precisa vencer a mente no grito. Precisa de um plano simples e repetível.
-          </p>
         </div>
       </section>
 
       <section id="faq" className="mx-auto max-w-6xl px-4 py-16">
+        <ObjectionsSection />
         <h2 className="text-3xl font-bold md:text-4xl">FAQ</h2>
         <div className="mt-6 grid gap-3">
           {[
             [
-              "Como vou receber o acesso?",
-              "Assim que o pagamento for confirmado, você recebe um e-mail com o link e acesso à área de membros.",
+              "Como recebo meu acesso?",
+              "Após confirmação do pagamento, você recebe e-mail com link para definir senha e entrar na área de membros.",
             ],
-            ["Dá pra acessar no celular?", "Sim. A área de membros é 100% responsiva."],
-            ["Em quanto tempo libera?", "PIX e cartão geralmente liberam rápido; boleto depende da compensação."],
-            ["E se eu não gostar?", "Você tem 7 dias para solicitar reembolso conforme a política da plataforma."],
-            ["Isso substitui terapia/psicólogo?", "Não. É material educacional e prático para estratégias do dia a dia."],
+            ["Funciona no celular?", "Sim. A área de membros foi feita para desktop e mobile."],
+            ["Quanto tempo para liberar?", "PIX e cartão geralmente liberam rápido; boleto depende da compensação."],
+            ["Tem garantia?", "Sim, 7 dias conforme a política de reembolso da plataforma de pagamento."],
+            ["Substitui terapia?", "Não. É conteúdo educacional de apoio prático para o dia a dia."],
           ].map(([question, answer]) => (
-            <details key={question} className="glass-card rounded-xl p-4">
+            <details key={question} className="rounded-xl border border-white/65 bg-white/72 p-4">
               <summary className="cursor-pointer font-semibold">{question}</summary>
               <p className="mt-2 text-sm text-[var(--carvao)]/82">{answer}</p>
             </details>
@@ -421,8 +449,75 @@ export default function AnsiedadeLandingPage() {
       </section>
 
       <footer className="border-t border-white/45 px-4 py-9 text-center text-sm text-[var(--carvao)]/75">
-        Marketing Digital Top. Conteúdo educacional e de apoio prático.
+        Marketing Digital Top • Conteúdo educacional e aplicação prática.
       </footer>
+
+      <div className="fixed right-0 bottom-0 left-0 z-40 border-t border-white/50 bg-[var(--creme)]/95 p-3 backdrop-blur md:hidden">
+        <div className="mx-auto flex max-w-6xl items-center gap-2">
+          <a
+            href={checkoutUrl}
+            className="inline-flex flex-1 items-center justify-center rounded-xl bg-[var(--ink)] px-4 py-3 text-center text-sm font-black text-white"
+          >
+            Liberar acesso por R$19,90
+          </a>
+          <span className="rounded-lg border border-[var(--ink)]/20 bg-white px-2 py-1 text-[11px] font-semibold text-[var(--carvao)]/80">
+            7 dias garantia
+          </span>
+        </div>
+      </div>
     </main>
+  );
+}
+
+function ObjectionsSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const objections = [
+    {
+      q: "E se eu não tiver tempo?",
+      a: "O método foi desenhado para rotina corrida: sessões curtas e práticas de poucos minutos.",
+    },
+    {
+      q: "Isso realmente funciona para quem pensa demais?",
+      a: "Sim. O foco é justamente interromper ruminação e criar ação prática no dia a dia.",
+    },
+    {
+      q: "Já tentei outras coisas e não consegui manter.",
+      a: "Aqui você recebe estrutura simples + checklist + plano guiado, para facilitar consistência.",
+    },
+    {
+      q: "E se eu não gostar do conteúdo?",
+      a: "Você tem 7 dias de garantia para solicitar reembolso conforme política da plataforma.",
+    },
+  ];
+
+  return (
+    <section className="mb-16">
+      <h2 className="text-3xl font-bold md:text-4xl">Quebrando objeções comuns</h2>
+      <div className="mt-6 space-y-3">
+        {objections.map((item, index) => {
+          const opened = openIndex === index;
+          return (
+            <div key={item.q} className="overflow-hidden rounded-xl border border-white/65 bg-white/72">
+              <button
+                type="button"
+                onClick={() => setOpenIndex((prev) => (prev === index ? null : index))}
+                className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left"
+              >
+                <span className="font-semibold">{item.q}</span>
+                <span className={`text-lg transition ${opened ? "rotate-45" : ""}`}>+</span>
+              </button>
+              <motion.div
+                initial={false}
+                animate={{ height: opened ? "auto" : 0, opacity: opened ? 1 : 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <p className="px-4 pb-4 text-sm text-[var(--carvao)]/80">{item.a}</p>
+              </motion.div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

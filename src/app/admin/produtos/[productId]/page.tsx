@@ -47,6 +47,9 @@ export default async function ProductAdminPage({ params }: ProductAdminPageProps
           description: product.description,
           type: product.type,
           active: product.active,
+          landingSlug: product.landingSlug ?? product.slug,
+          landingEnabled: product.landingEnabled,
+          landingConfig: (product.landingConfig as Record<string, unknown> | null) ?? null,
           ebookAsset: product.ebookAsset
             ? {
                 fileName: product.ebookAsset.fileName,

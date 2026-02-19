@@ -35,6 +35,9 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
   const params = (await searchParams) ?? {};
   const unitPriceCents = parseNumber(process.env.ADMIN_UNIT_PRICE_CENTS, 1990);
   const costPerSaleCents = parseNumber(process.env.ADMIN_COST_PER_SALE_CENTS, 0);
+  const analyticsMaxRows = Math.max(500, parseNumber(process.env.ADMIN_ANALYTICS_MAX_ROWS, 3000));
+  const adminUsersTake = Math.max(50, parseNumber(process.env.ADMIN_USERS_TABLE_TAKE, 120));
+  const adminProductsTake = Math.max(50, parseNumber(process.env.ADMIN_PRODUCTS_TABLE_TAKE, 120));
   const fallbackNetByMethod: Record<string, number> = {
     PIX: parseNumber(process.env.ADMIN_NET_PIX_CENTS, 1741),
     BOLETO: parseNumber(process.env.ADMIN_NET_BOLETO_CENTS, 1642),
@@ -75,6 +78,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     product: { title: string };
     offer: { caktoOfferId: string; checkoutUrl: string } | null;
   }> = [];
+  let analyticsTruncated = false;
   let users: Array<{
     id: string;
     name: string | null;
@@ -107,6 +111,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         refundedCountCached,
         openTicketsRaw,
         periodPurchasesCached,
+        periodPurchasesCountCached,
         usersCached,
         productsCached,
       ] = await Promise.all([
@@ -123,11 +128,15 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         }),
         prisma.purchase.findMany({
           where: { createdAt: { gte: start, lte: end } },
+          take: analyticsMaxRows,
           include: {
             product: { select: { title: true } },
             offer: { select: { caktoOfferId: true, checkoutUrl: true } },
           },
-          orderBy: { createdAt: "asc" },
+          orderBy: { createdAt: "desc" },
+        }),
+        prisma.purchase.count({
+          where: { createdAt: { gte: start, lte: end } },
         }),
         prisma.user.findMany({
           orderBy: { createdAt: "desc" },
@@ -140,7 +149,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             createdAt: true,
             _count: { select: { purchases: true } },
           },
-          take: 200,
+          take: adminUsersTake,
         }),
         prisma.product.findMany({
           orderBy: { createdAt: "desc" },
@@ -153,9 +162,11 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
             ebookAsset: { select: { id: true } },
             modules: { select: { id: true, lessons: { select: { id: true } } } },
           },
-          take: 200,
+          take: adminProductsTake,
         }),
       ]);
+
+      const normalizedPeriodPurchases = [...periodPurchasesCached].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 
       const openTicketIds = openTicketsRaw.map((ticket) => ticket.id);
       const latestMessages = openTicketIds.length
@@ -188,7 +199,8 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
         activePurchasesCountCached,
         refundedCountCached,
         openTicketsCached,
-        periodPurchasesCached,
+        periodPurchasesCached: normalizedPeriodPurchases,
+        periodPurchasesCountCached,
         usersCached,
         productsCached,
       };
@@ -206,6 +218,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
     refundedCount = cached.refundedCountCached;
     openTickets = cached.openTicketsCached;
     periodPurchases = cached.periodPurchasesCached;
+    analyticsTruncated = cached.periodPurchasesCountCached > cached.periodPurchasesCached.length;
     users = cached.usersCached;
     products = cached.productsCached;
   } catch (error) {
@@ -413,6 +426,7 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
       funnelRows={funnelRows}
       aiInsights={aiInsights}
       creativeIdeas={creativeIdeas}
+      analyticsTruncated={analyticsTruncated}
       openTickets={openTickets.map((ticket) => ({
         id: ticket.id,
         subject: ticket.subject,

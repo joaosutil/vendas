@@ -38,6 +38,8 @@ export async function GET() {
     products: products.map((product) => ({
       id: product.id,
       slug: product.slug,
+      landingSlug: product.landingSlug,
+      landingEnabled: product.landingEnabled,
       title: product.title,
       description: product.description,
       type: product.type,
@@ -62,6 +64,7 @@ export async function POST(request: Request) {
   const product = await prisma.product.create({
     data: {
       slug: payload.slug,
+      landingSlug: payload.slug,
       title: payload.title,
       description: payload.description || null,
       type: payload.type ?? "EBOOK",

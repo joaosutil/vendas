@@ -44,6 +44,27 @@ function uniqueSorted(values: number[]) {
   return [...new Set(values)].sort((a, b) => a - b);
 }
 
+function resolveModuleIndexByPage(
+  chapterStartPage: number,
+  modulesCount: number,
+  fallbackIndex: number,
+) {
+  const raw = process.env.NEXT_PUBLIC_ANSIEDADE_MODULE_PAGES;
+  if (!raw) return fallbackIndex;
+  const starts = raw
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  if (starts.length !== modulesCount) return fallbackIndex;
+
+  let moduleIndex = 0;
+  for (let i = 0; i < starts.length; i += 1) {
+    if (chapterStartPage >= starts[i]) moduleIndex = i;
+  }
+  return Math.max(0, Math.min(moduleIndex, modulesCount - 1));
+}
+
 function splitReadableParagraphs(text: string) {
   const normalized = text.replace(/\r/g, " ").replace(/\n+/g, " ").replace(/\s{2,}/g, " ").trim();
   if (!normalized) return [];
@@ -126,8 +147,11 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
     }
 
     return merged.map((chapter, index) => {
-      const moduleIndex = modules.length
+      const linearModuleIndex = modules.length
         ? Math.min(Math.floor((index / Math.max(merged.length - 1, 1)) * modules.length), modules.length - 1)
+        : index;
+      const moduleIndex = modules.length
+        ? resolveModuleIndexByPage(chapter.startPage, modules.length, linearModuleIndex)
         : index;
       const displayTitle = modules[moduleIndex] || chapter.title || `Seção ${index + 1}`;
       return { ...chapter, displayTitle, moduleIndex };
@@ -257,24 +281,6 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
   }, []);
 
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const idx = Number(entry.target.getAttribute("data-chapter-index"));
-          if (entry.isIntersecting && Number.isInteger(idx)) {
-            setActiveChapter(idx);
-            setReadChapters((prev) => (prev.includes(idx) ? prev : uniqueSorted([...prev, idx])));
-          }
-        });
-      },
-      { threshold: 0.6, root: readerScrollRef.current },
-    );
-
-    chapterRefs.current.forEach((el) => el && observer.observe(el));
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
     const el = readerScrollRef.current;
     if (!el) return;
     const onScroll = () => {
@@ -285,12 +291,35 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
       }
       const value = Math.round((el.scrollTop / maxScrollable) * 100);
       setScrollProgress(Math.min(Math.max(value, 0), 100));
+
+      // Track current chapter by reading anchor and auto-complete modules by scroll depth.
+      const anchor = el.scrollTop + el.clientHeight * 0.3;
+      let nearest = 0;
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      chapterRefs.current.forEach((node, idx) => {
+        if (!node) return;
+        const distance = Math.abs(node.offsetTop - anchor);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearest = idx;
+        }
+      });
+      setActiveChapter(nearest);
+
+      const visibleIndexes: number[] = [];
+      chapterRefs.current.forEach((node, idx) => {
+        if (!node) return;
+        if (node.offsetTop <= el.scrollTop + el.clientHeight * 0.55) visibleIndexes.push(idx);
+      });
+      if (!visibleIndexes.includes(nearest)) visibleIndexes.push(nearest);
+
+      setReadChapters((prev) => uniqueSorted([...prev, ...visibleIndexes]));
     };
 
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [chaptersView.length]);
 
   function goToChapter(index: number) {
     const target = chapterRefs.current[index];
@@ -420,7 +449,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
         <p className="mt-1 text-[var(--carvao)]/80">Com o marca-texto ligado, selecione apenas as palavras/linhas desejadas para marcar.</p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.8fr_0.9fr]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2.1fr)_minmax(360px,1fr)]">
         <div
           ref={viewerRef}
           className={`ebook-reader-shell rounded-2xl border border-white/60 bg-[#fffdf8] p-3 shadow-sm md:p-5 ${
@@ -486,7 +515,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
           <div
             ref={readerScrollRef}
             onMouseUp={addHighlightFromSelection}
-            className={`${isFullscreen ? "h-[92vh]" : "h-[76vh]"} overflow-y-auto pr-1 md:pr-4 ${highlightMode ? "select-text" : "select-none"}`}
+            className={`${isFullscreen ? "h-[92vh]" : "h-[74vh] md:h-[78vh]"} overflow-y-auto pr-1 md:pr-4 ${highlightMode ? "select-text" : "select-none"}`}
           >
             <div className="mx-auto max-w-4xl space-y-7 pb-16">
               <article className="ebook-cover-card relative overflow-hidden rounded-xl border border-[var(--dourado)]/50 bg-white px-4 py-5 md:px-8 md:py-7 shadow-sm">
@@ -514,7 +543,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
                     chapterRefs.current[chapterIndex] = el;
                   }}
                   data-chapter-index={chapterIndex}
-                  className={`ebook-chapter-card reader-chapter-virtualized rounded-xl border px-4 py-5 md:px-8 md:py-7 transition min-h-[72vh] ${
+                  className={`ebook-chapter-card reader-chapter-virtualized rounded-xl border px-4 py-5 md:px-7 md:py-7 transition min-h-[65vh] ${
                     activeChapter === chapterIndex
                       ? "border-[var(--ink)]/45 bg-gradient-to-br from-[var(--dourado)]/20 to-white shadow-sm"
                       : "border-[var(--dourado)]/35 bg-white/90"
@@ -546,13 +575,13 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
         <aside className="space-y-4 xl:sticky xl:top-20 xl:self-start">
           <div className="ebook-sidebar-card rounded-2xl border border-white/60 bg-white/75 p-4">
             <h3 className="font-semibold">Sumário</h3>
-            <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
+            <div className="mt-3 max-h-[46vh] space-y-2 overflow-y-auto pr-1">
               {chaptersView.map((chapter, index) => (
                 <button
                   key={chapter.id}
                   type="button"
                   onClick={() => goToChapter(index)}
-                  className={`w-full rounded-md border px-3 py-2 text-left text-sm ${
+                  className={`w-full rounded-md border px-3 py-2 text-left text-sm leading-snug ${
                     activeChapter === index ? "border-[var(--ink)] bg-[var(--ink)] text-white" : "border-[var(--dourado)]/40 bg-white"
                   }`}
                 >
@@ -564,9 +593,9 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
 
           <div className="ebook-sidebar-card rounded-2xl border border-white/60 bg-white/75 p-4">
             <h3 className="font-semibold">Módulos (automático por leitura)</h3>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 max-h-[36vh] space-y-2 overflow-y-auto pr-1">
               {modules.map((moduleTitle, idx) => (
-                <div key={moduleTitle} className="flex items-start gap-2 rounded-md border border-[var(--dourado)]/40 bg-white px-3 py-2 text-sm">
+                <div key={moduleTitle} className="flex items-start gap-2 rounded-md border border-[var(--dourado)]/40 bg-white px-3 py-2 text-sm leading-snug">
                   <span
                     className={`mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] font-bold ${
                       completedModules.includes(idx) ? "border-[var(--ink)] bg-[var(--ink)] text-white" : "border-[var(--ink)]/30 text-transparent"

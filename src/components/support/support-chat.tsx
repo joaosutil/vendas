@@ -124,7 +124,7 @@ export function SupportChat({ userEmail }: SupportChatProps) {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-white/60 bg-white/75 p-5">
+      <div className="interactive-lift rounded-2xl border border-white/60 bg-white/75 p-5">
         <h1 className="text-3xl font-bold">Suporte</h1>
         <p className="mt-1 text-sm text-[var(--carvao)]/80">
           Chat IA + atendimento humano. Conta atual: <strong>{userEmail}</strong>
@@ -137,7 +137,7 @@ export function SupportChat({ userEmail }: SupportChatProps) {
 
       <div className="grid gap-4 xl:grid-cols-[0.95fr_1.35fr]">
         <aside className="space-y-4">
-          <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+          <div className="interactive-lift rounded-2xl border border-white/60 bg-white/75 p-4">
             <h2 className="font-semibold">Abrir novo ticket</h2>
             <input
               value={subject}
@@ -163,7 +163,7 @@ export function SupportChat({ userEmail }: SupportChatProps) {
             {feedback ? <p className="mt-2 text-xs text-[var(--carvao)]/80">{feedback}</p> : null}
           </div>
 
-          <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+          <div className="interactive-lift rounded-2xl border border-white/60 bg-white/75 p-4">
             <h2 className="font-semibold">Tickets</h2>
             <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto pr-1">
               {tickets.length === 0 ? (
@@ -174,7 +174,7 @@ export function SupportChat({ userEmail }: SupportChatProps) {
                     key={ticket.id}
                     type="button"
                     onClick={() => setSelectedTicketId(ticket.id)}
-                    className={`w-full rounded-lg border p-3 text-left text-sm ${
+                    className={`interactive-lift w-full rounded-lg border p-3 text-left text-sm ${
                       ticket.id === selectedTicketId
                         ? "border-[var(--ink)] bg-[var(--ink)] text-white"
                         : "border-[var(--dourado)]/45 bg-white"
@@ -189,7 +189,7 @@ export function SupportChat({ userEmail }: SupportChatProps) {
           </div>
         </aside>
 
-        <div className="rounded-2xl border border-white/60 bg-white/75 p-4">
+        <div className="interactive-lift rounded-2xl border border-white/60 bg-white/75 p-4">
           <h2 className="font-semibold">Conversa</h2>
           {selectedTicket ? (
             <p className="mt-1 text-xs text-[var(--carvao)]/75">
