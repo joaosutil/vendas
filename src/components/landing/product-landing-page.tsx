@@ -49,6 +49,9 @@ type ProductLandingPageProps = {
   accentColor: string;
   themeMode: "light" | "dark";
   animationsEnabled: boolean;
+  editorMode?: boolean;
+  selectedEditorBlockId?: string | null;
+  onEditorBlockSelect?: (blockId: string) => void;
 };
 
 function Card({
@@ -130,6 +133,12 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
   const hasCanvasBlocks = canvasBlocks.length > 0;
   const normalizedActiveSlide = carouselImages.length > 0 ? activeSlide % carouselImages.length : 0;
 
+  function stopNavigationInEditor(event: React.MouseEvent<HTMLElement>) {
+    if (!props.editorMode) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   function animationFor(blockAnimation: LandingCanvasAnimation, index: number) {
     if (!props.animationsEnabled || blockAnimation === "none") return {};
     const transition = { duration: 0.45, delay: index * 0.05 };
@@ -205,7 +214,16 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
               key={block.id}
               viewport={{ once: true, amount: 0.2 }}
               {...animationFor(block.animation, index)}
-              className="group rounded-3xl border p-4 shadow-xl backdrop-blur transition hover:translate-y-[-1px] md:p-6"
+              className={`group rounded-3xl border p-4 shadow-xl backdrop-blur transition hover:translate-y-[-1px] md:p-6 ${
+                props.editorMode ? "cursor-pointer" : ""
+              } ${
+                props.editorMode && props.selectedEditorBlockId === block.id
+                  ? "ring-2 ring-sky-400 ring-offset-2 ring-offset-transparent"
+                  : ""
+              }`}
+              onClick={() => props.onEditorBlockSelect?.(block.id)}
+              role={props.editorMode ? "button" : undefined}
+              tabIndex={props.editorMode ? 0 : undefined}
               style={{
                 borderColor: props.themeMode === "dark" ? "rgba(148, 163, 184, 0.32)" : "rgba(255,255,255,0.3)",
                 background: block.backgroundColor || defaultCanvasBackground,
@@ -220,6 +238,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                     {block.buttonLabel && block.buttonUrl ? (
                       <a
                         href={block.buttonUrl}
+                        onClick={stopNavigationInEditor}
                         className="mt-4 inline-flex rounded-xl px-5 py-3 text-sm font-black text-white shadow-lg transition hover:scale-[1.01]"
                         style={{ backgroundColor: props.primaryColor }}
                       >
@@ -229,7 +248,12 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                   </div>
                   <div>
                     {block.videoUrl ? (
-                      <iframe src={block.videoUrl} className="h-64 w-full rounded-xl border border-white/25 md:h-80" title={block.title || props.title} allowFullScreen />
+                      <iframe
+                        src={block.videoUrl}
+                        className={`h-64 w-full rounded-xl border border-white/25 md:h-80 ${props.editorMode ? "pointer-events-none" : ""}`}
+                        title={block.title || props.title}
+                        allowFullScreen
+                      />
                     ) : block.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl border border-white/20 object-cover" />
@@ -260,7 +284,12 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                 <>
                   {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
                   {block.videoUrl ? (
-                    <iframe src={block.videoUrl} className="h-64 w-full rounded-xl border border-white/25 md:h-80" title={block.title || props.title} allowFullScreen />
+                    <iframe
+                      src={block.videoUrl}
+                      className={`h-64 w-full rounded-xl border border-white/25 md:h-80 ${props.editorMode ? "pointer-events-none" : ""}`}
+                      title={block.title || props.title}
+                      allowFullScreen
+                    />
                   ) : null}
                   {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
                 </>
@@ -272,6 +301,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                   {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
                   <a
                     href={block.buttonUrl || props.ctaUrl}
+                    onClick={stopNavigationInEditor}
                     className="mt-4 inline-flex rounded-xl px-6 py-3 text-sm font-black text-white shadow-lg transition hover:scale-[1.02]"
                     style={{ backgroundColor: props.primaryColor }}
                   >
@@ -405,6 +435,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
             <div className="mt-6 flex flex-wrap gap-3">
               <a
                 href={props.ctaUrl}
+                onClick={stopNavigationInEditor}
                 className="rounded-xl px-6 py-3 text-sm font-black text-white transition hover:scale-[1.02] md:text-base shadow-lg"
                 style={{ backgroundColor: props.primaryColor }}
               >
@@ -557,6 +588,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
           <h3 className="mt-2 text-2xl font-black">{props.title}</h3>
           <a
             href={props.ctaUrl}
+            onClick={stopNavigationInEditor}
             className="mt-4 inline-flex rounded-xl px-6 py-3 text-sm font-black text-white transition hover:scale-[1.02]"
             style={{ backgroundColor: props.primaryColor }}
           >

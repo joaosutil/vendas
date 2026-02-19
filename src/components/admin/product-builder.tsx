@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ProductLandingPage } from "@/components/landing/product-landing-page";
 
 type LandingCanvasAnimation =
   | "none"
@@ -76,6 +77,23 @@ function cloneLandingBlocks(blocks: LandingCanvasBlock[]) {
 function areLandingBlocksEqual(left: LandingCanvasBlock[] | undefined, right: LandingCanvasBlock[]) {
   if (!left) return false;
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function splitLines(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function splitPairs(value: string) {
+  return splitLines(value)
+    .map((line) => {
+      const [left, ...rest] = line.split("|");
+      const right = rest.join("|");
+      return { left: left?.trim() ?? "", right: right?.trim() ?? "" };
+    })
+    .filter((item) => item.left && item.right);
 }
 
 type ProductBuilderProps = {
@@ -293,9 +311,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const [layerSearch, setLayerSearch] = useState("");
   const [readerTheme, setReaderTheme] = useState<"light" | "dark" | "reading">("light");
   const [templateNicheFilter, setTemplateNicheFilter] = useState("all");
-  const [stageGridEnabled, setStageGridEnabled] = useState(true);
-  const [stageSnapEnabled, setStageSnapEnabled] = useState(true);
-  const [stageGridSize, setStageGridSize] = useState(24);
+  const [stageViewport, setStageViewport] = useState<"desktop" | "mobile">("desktop");
 
   const historyRef = useRef<LandingCanvasBlock[][]>([]);
   const historyIndexRef = useRef(-1);
@@ -468,14 +484,100 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const canUndo = historyCursor.index > 0;
   const canRedo = historyCursor.index < historyCursor.total - 1;
 
-  const stageGridStyle = useMemo(() => {
-    if (!stageGridEnabled) return undefined;
-    const lineColor = builderIsDark ? "rgba(148, 163, 184, 0.16)" : "rgba(15, 23, 42, 0.08)";
+  const stagePreviewData = useMemo(() => {
+    const heroBlock = landingBlocks.find((block) => block.type === "hero");
+    const buttonBlock = landingBlocks.find((block) => block.type === "button");
+    const videoBlock = landingBlocks.find((block) => block.type === "video");
+    const carouselBlock = landingBlocks.find((block) => block.type === "carousel");
+    const benefitsBlock = landingBlocks.find((block) => block.type === "benefits");
+    const faqBlocks = landingBlocks.filter((block) => block.type === "faq");
+    const textBlocks = landingBlocks.filter((block) => block.type === "text" || block.type === "benefits");
+
+    const testimonials = splitPairs(landingTestimonials).map((item) => ({
+      name: item.left,
+      text: item.right,
+    }));
+
+    const faq = faqBlocks.length
+      ? faqBlocks
+          .filter((block) => block.title.trim() && block.text.trim())
+          .map((block) => ({
+            question: block.title.trim(),
+            answer: block.text.trim(),
+          }))
+      : splitPairs(landingFaq).map((item) => ({
+          question: item.left,
+          answer: item.right,
+        }));
+
+    const contentSections =
+      landingBlocks.length > 0
+        ? landingBlocks
+            .filter((block) => block.title.trim() && block.text.trim())
+            .map((block) => ({
+              title: block.title.trim(),
+              text: block.text.trim(),
+              type:
+                block.type === "benefits"
+                  ? ("benefit" as const)
+                  : block.type === "faq"
+                  ? ("faq" as const)
+                  : ("section" as const),
+              imageUrl: block.imageUrl.trim() || null,
+            }))
+        : splitPairs(landingSections).map((item) => ({
+            title: item.left,
+            text: item.right,
+            type: "section" as const,
+            imageUrl: null,
+          }));
+
     return {
-      backgroundImage: `linear-gradient(to right, ${lineColor} 1px, transparent 1px), linear-gradient(to bottom, ${lineColor} 1px, transparent 1px)`,
-      backgroundSize: `${stageGridSize}px ${stageGridSize}px`,
+      title,
+      badge: landingBadge.trim() || "Oferta especial",
+      headline: heroBlock?.title.trim() || landingHeadline.trim(),
+      subheadline: heroBlock?.text.trim() || landingSubheadline.trim(),
+      description: textBlocks[0]?.text.trim() || landingDescription.trim(),
+      priceLabel: landingPriceLabel.trim() || "Condição especial hoje",
+      ctaLabel: buttonBlock?.buttonLabel.trim() || landingCtaLabel.trim(),
+      ctaUrl: buttonBlock?.buttonUrl.trim() || landingCtaUrl.trim(),
+      heroVideoUrl: heroBlock?.videoUrl.trim() || videoBlock?.videoUrl.trim() || landingHeroVideoUrl.trim(),
+      heroImageUrl: heroBlock?.imageUrl.trim() || landingHeroImageUrl.trim(),
+      bullets: benefitsBlock?.items.length ? benefitsBlock.items : splitLines(landingBullets),
+      carouselImages: carouselBlock?.items.length ? carouselBlock.items : splitLines(landingCarouselImages),
+      testimonials,
+      faq,
+      contentSections,
+      blocks: landingBlocks,
+      primaryColor: landingPrimaryColor,
+      secondaryColor: landingSecondaryColor,
+      accentColor: landingAccentColor,
+      themeMode: landingThemeMode,
+      animationsEnabled: landingAnimationsEnabled,
     };
-  }, [builderIsDark, stageGridEnabled, stageGridSize]);
+  }, [
+    landingBlocks,
+    landingTestimonials,
+    landingFaq,
+    landingSections,
+    title,
+    landingBadge,
+    landingHeadline,
+    landingSubheadline,
+    landingDescription,
+    landingPriceLabel,
+    landingCtaLabel,
+    landingCtaUrl,
+    landingHeroVideoUrl,
+    landingHeroImageUrl,
+    landingBullets,
+    landingCarouselImages,
+    landingPrimaryColor,
+    landingSecondaryColor,
+    landingAccentColor,
+    landingThemeMode,
+    landingAnimationsEnabled,
+  ]);
 
   useEffect(() => {
     const snapshot = cloneLandingBlocks(landingBlocks);
@@ -553,23 +655,6 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  function splitLines(value: string) {
-    return value
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }
-
-  function splitPairs(value: string) {
-    return splitLines(value)
-      .map((line) => {
-        const [left, ...rest] = line.split("|");
-        const right = rest.join("|");
-        return { left: left?.trim() ?? "", right: right?.trim() ?? "" };
-      })
-      .filter((item) => item.left && item.right);
-  }
 
   function syncSectionsFromBlocks(blocks: LandingCanvasBlock[]) {
     const serialized = blocks
@@ -1281,111 +1366,74 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
             }`}
           >
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className={`text-xs font-semibold uppercase tracking-wide ${builderIsDark ? "text-slate-300/80" : "text-[var(--carvao)]/70"}`}>Palco visual</p>
-              <div className="flex flex-wrap items-center gap-1.5">
+              <p className={`text-xs font-semibold uppercase tracking-wide ${builderIsDark ? "text-slate-300/80" : "text-[var(--carvao)]/70"}`}>
+                Palco visual (WYSIWYG)
+              </p>
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setStageGridEnabled((prev) => !prev)}
+                  onClick={() => setStageViewport("desktop")}
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                    stageGridEnabled
-                      ? "border-emerald-400/70 bg-emerald-500/20 text-emerald-100"
-                      : builderIsDark
-                      ? "border-slate-500/70 bg-slate-900/70 text-slate-300"
-                      : "border-[var(--ink)]/25 bg-white text-[var(--carvao)]"
-                  }`}
-                >
-                  Grid {stageGridEnabled ? "ON" : "OFF"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStageSnapEnabled((prev) => !prev)}
-                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                    stageSnapEnabled
+                    stageViewport === "desktop"
                       ? "border-sky-400/70 bg-sky-500/20 text-sky-100"
                       : builderIsDark
                       ? "border-slate-500/70 bg-slate-900/70 text-slate-300"
                       : "border-[var(--ink)]/25 bg-white text-[var(--carvao)]"
                   }`}
                 >
-                  Snap {stageSnapEnabled ? "ON" : "OFF"}
+                  Desktop
                 </button>
-                <label className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${builderIsDark ? "border-slate-500/70 bg-slate-900/70 text-slate-200" : "border-[var(--ink)]/25 bg-white text-[var(--carvao)]"}`}>
-                  Grid
-                  <input
-                    type="range"
-                    min={12}
-                    max={48}
-                    step={4}
-                    value={stageGridSize}
-                    onChange={(event) => setStageGridSize(Number(event.target.value))}
-                    className="h-3 w-14 accent-sky-500"
-                  />
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setStageViewport("mobile")}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                    stageViewport === "mobile"
+                      ? "border-sky-400/70 bg-sky-500/20 text-sky-100"
+                      : builderIsDark
+                      ? "border-slate-500/70 bg-slate-900/70 text-slate-300"
+                      : "border-[var(--ink)]/25 bg-white text-[var(--carvao)]"
+                  }`}
+                >
+                  Mobile
+                </button>
               </div>
             </div>
+            <p className={`mb-2 text-[11px] ${builderIsDark ? "text-slate-300/75" : "text-[var(--carvao)]/65"}`}>
+              O palco abaixo usa o mesmo componente da LP publicada. Clique em um bloco para editar no inspector.
+            </p>
             <div
               className={`max-h-[42rem] space-y-3 overflow-y-auto rounded-xl border p-3 ${
                 builderIsDark ? "border-slate-600/65 bg-slate-950/45" : "border-[var(--dourado)]/30 bg-[var(--creme)]/45"
-              } ${stageSnapEnabled ? "snap-y snap-proximity" : ""}`}
-              style={stageGridStyle}
+              }`}
             >
-              {landingBlocks.map((block, index) => (
-                <article
-                  key={`stage-${block.id}`}
-                  draggable
-                  onDragStart={() => {
-                    setDraggingBlockId(block.id);
-                    setDragOverBlockId(null);
-                  }}
-                  onDragEnter={() => setDragOverBlockId(block.id)}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    event.dataTransfer.dropEffect = "move";
-                  }}
-                  onDragEnd={() => {
-                    setDraggingBlockId(null);
-                    setDragOverBlockId(null);
-                  }}
-                  onDrop={() => onDropBlock(block.id)}
-                  onClick={() => setSelectedBlockId(block.id)}
-                  className={`cursor-pointer rounded-2xl border p-3.5 transition-all ${stageSnapEnabled ? "snap-start" : ""} ${
-                    selectedBlock?.id === block.id
-                      ? "border-sky-400/85 shadow-[0_0_0_1px_rgba(56,189,248,0.45),0_12px_30px_rgba(2,6,23,0.24)]"
-                      : builderIsDark
-                      ? "border-slate-600/65 hover:border-slate-400/70 hover:bg-slate-900/55"
-                      : "border-[var(--dourado)]/35 hover:border-[var(--ink)]/35 hover:bg-white"
-                  } ${dragOverBlockId === block.id && draggingBlockId !== block.id ? "ring-2 ring-sky-400/70" : ""}`}
-                  style={{
-                    backgroundColor: builderIsDark ? "rgba(15,23,42,0.78)" : block.backgroundColor || "rgba(255,255,255,0.95)",
-                    color: builderIsDark ? block.textColor || "#e2e8f0" : block.textColor || undefined,
-                    boxShadow: builderIsDark && block.backgroundColor ? `inset 4px 0 0 ${block.backgroundColor}` : undefined,
-                  }}
-                >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-bold">{block.title || `Bloco ${index + 1}`}</p>
-                      <p className="text-[11px] opacity-80">{ANIMATION_OPTIONS.find((item) => item.value === block.animation)?.label ?? "Fade"}</p>
-                    </div>
-                    <span className="rounded-full border border-current/30 px-2 py-0.5 text-[10px] font-semibold uppercase">
-                      {BLOCK_TYPE_LABEL[block.type]}
-                    </span>
-                  </div>
-                  {block.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={block.imageUrl} alt={block.title || "Imagem"} className="mb-2 h-32 w-full rounded-xl border border-white/20 object-cover" />
-                  ) : null}
-                  {block.videoUrl ? <p className="mb-1 line-clamp-1 text-[11px] opacity-80">Video: {block.videoUrl}</p> : null}
-                  {block.items.length ? (
-                    <ul className="mb-1 list-disc space-y-1 pl-4 text-xs">
-                      {block.items.slice(0, 3).map((item, idx) => (
-                        <li key={`${block.id}-item-${idx}`}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {block.text ? <p className="line-clamp-3 text-xs opacity-90">{block.text}</p> : null}
-                  {block.buttonLabel ? <p className="mt-2 text-xs font-semibold">CTA: {block.buttonLabel}</p> : null}
-                </article>
-              ))}
+              <div className={stageViewport === "mobile" ? "mx-auto w-full max-w-[430px]" : "w-full"}>
+                <ProductLandingPage
+                  title={stagePreviewData.title}
+                  badge={stagePreviewData.badge}
+                  headline={stagePreviewData.headline}
+                  subheadline={stagePreviewData.subheadline}
+                  description={stagePreviewData.description}
+                  priceLabel={stagePreviewData.priceLabel}
+                  ctaLabel={stagePreviewData.ctaLabel}
+                  ctaUrl={stagePreviewData.ctaUrl}
+                  heroImageUrl={stagePreviewData.heroImageUrl}
+                  heroVideoUrl={stagePreviewData.heroVideoUrl}
+                  bullets={stagePreviewData.bullets}
+                  carouselImages={stagePreviewData.carouselImages}
+                  testimonials={stagePreviewData.testimonials}
+                  faq={stagePreviewData.faq}
+                  contentSections={stagePreviewData.contentSections}
+                  blocks={stagePreviewData.blocks}
+                  primaryColor={stagePreviewData.primaryColor}
+                  secondaryColor={stagePreviewData.secondaryColor}
+                  accentColor={stagePreviewData.accentColor}
+                  themeMode={stagePreviewData.themeMode}
+                  animationsEnabled={stagePreviewData.animationsEnabled}
+                  editorMode
+                  selectedEditorBlockId={selectedBlock?.id ?? null}
+                  onEditorBlockSelect={(blockId) => setSelectedBlockId(blockId)}
+                />
+              </div>
             </div>
           </div>
           <aside
