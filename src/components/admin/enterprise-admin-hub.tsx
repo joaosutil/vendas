@@ -416,9 +416,9 @@ export function EnterpriseAdminHub({
 
       <div className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-3">
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setTab("finance")} className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "finance" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"}`}>Financeiro</button>
-          <button type="button" onClick={() => setTab("growth")} className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "growth" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"}`}>Growth IA</button>
-          <button type="button" onClick={() => setTab("operations")} className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "operations" ? "bg-[var(--ink)] text-white" : "border border-[var(--ink)]/25 bg-white"}`}>Operações</button>
+          <button type="button" onClick={() => setTab("finance")} className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "finance" ? "bg-[var(--ink)] text-white" : "border border-[var(--surface-border)] bg-[var(--surface)] text-[var(--foreground)]"}`}>Financeiro</button>
+          <button type="button" onClick={() => setTab("growth")} className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "growth" ? "bg-[var(--ink)] text-white" : "border border-[var(--surface-border)] bg-[var(--surface)] text-[var(--foreground)]"}`}>Growth IA</button>
+          <button type="button" onClick={() => setTab("operations")} className={`rounded-md px-3 py-2 text-sm font-semibold ${tab === "operations" ? "bg-[var(--ink)] text-white" : "border border-[var(--surface-border)] bg-[var(--surface)] text-[var(--foreground)]"}`}>Operações</button>
         </div>
       </div>
 
@@ -701,9 +701,9 @@ export function EnterpriseAdminHub({
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="interactive-lift rounded-xl border border-[#7aa5ff55] bg-[linear-gradient(140deg,#ffffffd9_0%,#f6fbffde_100%)] p-4 shadow-sm">
-      <p className="text-xs font-semibold tracking-wide text-[var(--carvao)]/75 uppercase">{label}</p>
-      <p className="mt-1 text-2xl font-black text-[var(--ink)]">{value}</p>
+    <div className="interactive-lift rounded-xl border border-[var(--surface-border)] bg-[var(--surface)] p-4 shadow-sm">
+      <p className="text-xs font-semibold tracking-wide text-[var(--foreground)]/75 uppercase">{label}</p>
+      <p className="mt-1 text-2xl font-black text-[var(--foreground)]">{value}</p>
     </div>
   );
 }

@@ -69,7 +69,6 @@ export default async function DashboardPage() {
   const ebookStateByProduct = new Map(ebookStates.map((state) => [state.productId, state]));
 
   const totalCompletedLessons = uniquePurchases.reduce((acc, purchase) => {
-    const totalLessons = purchase.product.modules.reduce((sum, module) => sum + module._count.lessons, 0);
     if (purchase.product.type === "EBOOK") {
       const ebookState = ebookStateByProduct.get(purchase.productId);
       if (!ebookState) return acc;
@@ -78,6 +77,7 @@ export default async function DashboardPage() {
       const effective = Math.max(moduleProgress, ebookState.scrollProgress);
       return acc + Math.round((effective / 100) * 10);
     }
+    const totalLessons = purchase.product.modules.reduce((sum, module) => sum + module._count.lessons, 0);
     return acc + Math.min(progressByProduct[purchase.productId] ?? 0, totalLessons);
   }, 0);
 
@@ -125,10 +125,6 @@ export default async function DashboardPage() {
           uniquePurchases.map((purchase) => {
             const totalLessons = purchase.product.modules.reduce((acc, module) => acc + module._count.lessons, 0);
             const ebookState = ebookStateByProduct.get(purchase.productId);
-            const completedLessons =
-              purchase.product.type === "EBOOK"
-                ? (ebookState?.readChapters.length ?? 0)
-                : (progressByProduct[purchase.productId] ?? 0);
             const progressPercent =
               purchase.product.type === "EBOOK"
                 ? Math.max(
@@ -137,7 +133,7 @@ export default async function DashboardPage() {
                       ? Math.round(((ebookState?.completedModules.length ?? 0) / purchase.product.modules.length) * 100)
                       : 0,
                   )
-                : (totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0);
+                : (totalLessons ? Math.round(((progressByProduct[purchase.productId] ?? 0) / totalLessons) * 100) : 0);
             return (
               <article key={purchase.id} className="group relative overflow-hidden rounded-2xl border border-[var(--surface-border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-soft)] transition hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="pointer-events-none absolute -top-8 -right-8 h-20 w-20 rounded-full bg-[var(--dourado)]/30 blur-2xl" />
@@ -146,7 +142,7 @@ export default async function DashboardPage() {
                   {purchase.product.type === "EBOOK"
                     ? `Leitura concluída: ${progressPercent}%`
                     : totalLessons > 0
-                    ? `${completedLessons}/${totalLessons} aulas concluídas (${progressPercent}%)`
+                    ? `${progressByProduct[purchase.productId] ?? 0}/${totalLessons} aulas concluídas (${progressPercent}%)`
                     : "Produto sem aulas cadastradas ainda"}
                 </p>
                 <div className="relative mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--dourado)]/30">

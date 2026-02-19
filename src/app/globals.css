@@ -233,10 +233,6 @@ body {
   color: #bfdbfe;
 }
 
-:root[data-reader-theme="dark"] .text-\[var\(--ink\)\] {
-  color: #93c5fd !important;
-}
-
 /* Dedicated dark-theme polish for ebook reader area */
 :root[data-reader-theme="dark"] .ebook-html-root .ebook-hero-card {
   background: linear-gradient(140deg, rgba(15, 23, 42, 0.95) 0%, rgba(20, 32, 56, 0.92) 45%, rgba(14, 24, 43, 0.95) 100%) !important;

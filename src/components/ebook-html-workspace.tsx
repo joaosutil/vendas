@@ -44,6 +44,10 @@ function uniqueSorted(values: number[]) {
   return [...new Set(values)].sort((a, b) => a - b);
 }
 
+function clampIndexes(values: number[], maxExclusive: number) {
+  return uniqueSorted(values.filter((value) => Number.isInteger(value) && value >= 0 && value < maxExclusive));
+}
+
 function resolveModuleIndexByPage(
   chapterStartPage: number,
   modulesCount: number,
@@ -122,6 +126,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
   const [markColor, setMarkColor] = useState("yellow");
   const [fontScale, setFontScale] = useState(1);
   const [loaded, setLoaded] = useState(false);
+  const restoredScrollRef = useRef(false);
 
   const chaptersView = useMemo(() => {
     const merged: Chapter[] = [];
@@ -182,7 +187,9 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
       moduleIndexes.add(Math.max(0, byScroll));
     }
 
-    return Array.from(moduleIndexes).sort((a, b) => a - b);
+    if (moduleIndexes.size === 0) return [];
+    const maxReached = Math.max(...Array.from(moduleIndexes));
+    return Array.from({ length: maxReached + 1 }, (_, idx) => idx);
   }, [activeChapter, chaptersView, modules.length, readChapters, scrollProgress]);
 
   const overallProgress = useMemo(() => {
@@ -210,10 +217,12 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
         };
       };
       if (ignore) return;
-      setActiveChapter(data.state.activeChapter ?? 0);
+      const maxChapterIndex = Math.max(chaptersView.length - 1, 0);
+      const nextActive = Math.min(Math.max(data.state.activeChapter ?? 0, 0), maxChapterIndex);
+      setActiveChapter(nextActive);
       setScrollProgress(Math.min(Math.max(data.state.scrollProgress ?? 0, 0), 100));
       setFontScale(Math.min(Math.max(data.state.fontScale ?? 1, 0.85), 1.6));
-      setReadChapters(uniqueSorted(data.state.readChapters ?? []));
+      setReadChapters(clampIndexes(data.state.readChapters ?? [], chaptersView.length));
       setHighlights(data.state.highlights ?? []);
       setLoaded(true);
     })();
@@ -221,7 +230,7 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
     return () => {
       ignore = true;
     };
-  }, [slug]);
+  }, [chaptersView.length, slug]);
 
   useEffect(() => {
     if (!loaded) return;
@@ -320,6 +329,25 @@ export function EbookHtmlWorkspace({ title, slug, modules, userEmail }: EbookHtm
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, [chaptersView.length]);
+
+  useEffect(() => {
+    if (!loaded || restoredScrollRef.current) return;
+    const el = readerScrollRef.current;
+    if (!el) return;
+
+    requestAnimationFrame(() => {
+      const targetByChapter = chapterRefs.current[activeChapter];
+      if (targetByChapter) {
+        const desiredTop = Math.max(targetByChapter.offsetTop - 18, 0);
+        el.scrollTo({ top: desiredTop, behavior: "auto" });
+      } else {
+        const maxScrollable = Math.max(el.scrollHeight - el.clientHeight, 0);
+        const desiredTop = Math.round((scrollProgress / 100) * maxScrollable);
+        el.scrollTo({ top: desiredTop, behavior: "auto" });
+      }
+      restoredScrollRef.current = true;
+    });
+  }, [activeChapter, loaded, scrollProgress]);
 
   function goToChapter(index: number) {
     const target = chapterRefs.current[index];

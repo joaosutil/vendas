@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type LandingCanvasBlock = {
@@ -8,6 +8,7 @@ type LandingCanvasBlock = {
   type: "section" | "benefit" | "faq";
   title: string;
   text: string;
+  imageUrl: string;
 };
 
 type ProductBuilderProps = {
@@ -119,9 +120,12 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
       : "O que você recebe|Detalhe o conteúdo principal aqui.",
   );
   const [draggingBlockId, setDraggingBlockId] = useState<string | null>(null);
+  const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
+  const [uploadingCarousel, setUploadingCarousel] = useState(false);
+  const [uploadingHero, setUploadingHero] = useState(false);
   const [landingBlocks, setLandingBlocks] = useState<LandingCanvasBlock[]>(() => {
     const initialPairs = Array.isArray(product.landingConfig?.contentSections)
-      ? (product.landingConfig?.contentSections as Array<{ title?: string; text?: string; type?: string }>)
+      ? (product.landingConfig?.contentSections as Array<{ title?: string; text?: string; type?: string; imageUrl?: string }>)
       : [{ title: "O que você recebe", text: "Detalhe o conteúdo principal aqui.", type: "section" }];
 
     return initialPairs.map((item, index) => ({
@@ -129,8 +133,10 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
       type: item.type === "benefit" || item.type === "faq" ? item.type : "section",
       title: item.title ?? "Seção",
       text: item.text ?? "",
+      imageUrl: item.imageUrl ?? "",
     }));
   });
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const landingTemplates = [
     {
       id: "vsl",
@@ -165,6 +171,21 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const selectedBlock = landingBlocks.find((block) => block.id === selectedBlockId) ?? landingBlocks[0] ?? null;
+
+  useEffect(() => {
+    if (!landingBlocks.length) {
+      if (selectedBlockId !== null) setSelectedBlockId(null);
+      return;
+    }
+    if (!selectedBlockId) {
+      setSelectedBlockId(landingBlocks[0].id);
+      return;
+    }
+    if (!landingBlocks.some((block) => block.id === selectedBlockId)) {
+      setSelectedBlockId(landingBlocks[0].id);
+    }
+  }, [landingBlocks, selectedBlockId]);
 
   const typeLabel = useMemo(() => {
     if (type === "EBOOK") return "E-book";
@@ -190,13 +211,23 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   }
 
   function syncSectionsFromBlocks(blocks: LandingCanvasBlock[]) {
-    const serialized = blocks.map((block) => `${block.title}|${block.text}`).join("\n");
+    const serialized = blocks
+      .map((block) => `${block.title}|${block.text}${block.imageUrl ? `|${block.imageUrl}` : ""}`)
+      .join("\n");
     setLandingSections(serialized);
   }
 
   function updateBlock(blockId: string, key: "title" | "text" | "type", value: string) {
     setLandingBlocks((prev) => {
       const next = prev.map((block) => (block.id === blockId ? { ...block, [key]: value } : block));
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function updateBlockImage(blockId: string, imageUrl: string) {
+    setLandingBlocks((prev) => {
+      const next = prev.map((block) => (block.id === blockId ? { ...block, imageUrl } : block));
       syncSectionsFromBlocks(next);
       return next;
     });
@@ -211,8 +242,10 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           type,
           title: type === "faq" ? "Pergunta frequente" : type === "benefit" ? "Benefício principal" : "Nova seção",
           text: "Descreva aqui...",
+          imageUrl: "",
         },
       ];
+      setSelectedBlockId(next[next.length - 1]?.id ?? null);
       syncSectionsFromBlocks(next);
       return next;
     });
@@ -221,6 +254,9 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   function removeBlock(blockId: string) {
     setLandingBlocks((prev) => {
       const next = prev.filter((block) => block.id !== blockId);
+      if (selectedBlockId === blockId) {
+        setSelectedBlockId(next[0]?.id ?? null);
+      }
       syncSectionsFromBlocks(next);
       return next;
     });
@@ -261,6 +297,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
       return next;
     });
     setDraggingBlockId(null);
+    setSelectedBlockId(targetId);
   }
 
   function applyTemplate(templateId: (typeof landingTemplates)[number]["id"]) {
@@ -270,18 +307,92 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     setLandingSubheadline(template.subheadline);
     setLandingBullets(template.bullets);
     setLandingSections(template.sections);
-    setLandingBlocks(
-      template.sections.split("\n").map((line, index) => {
+    const blocks = template.sections.split("\n").map((line, index) => {
         const [title, ...rest] = line.split("|");
         return {
           id: `tpl-${template.id}-${index}`,
           type: "section" as const,
           title: title?.trim() ?? "Seção",
           text: rest.join("|").trim(),
+          imageUrl: "",
         };
-      }),
-    );
+      });
+    setLandingBlocks(blocks);
+    setSelectedBlockId(blocks[0]?.id ?? null);
     setFeedback(`Template "${template.label}" aplicado.`);
+  }
+
+  async function uploadLandingAsset(blockId: string, file: File) {
+    setUploadingBlockId(blockId);
+    setFeedback(null);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+
+      const response = await fetch(`/api/admin/products/${product.id}/landing-assets`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { ok: boolean; url?: string; error?: string };
+      if (!response.ok || !data.ok || !data.url) {
+        setFeedback(data.error ?? "Falha ao enviar imagem.");
+        return;
+      }
+      updateBlockImage(blockId, data.url);
+      setFeedback("Imagem enviada para a seção.");
+    } catch {
+      setFeedback("Falha ao enviar imagem.");
+    } finally {
+      setUploadingBlockId(null);
+    }
+  }
+
+  async function uploadCarouselAsset(file: File) {
+    setUploadingCarousel(true);
+    setFeedback(null);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const response = await fetch(`/api/admin/products/${product.id}/landing-assets`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { ok: boolean; url?: string; error?: string };
+      if (!response.ok || !data.ok || !data.url) {
+        setFeedback(data.error ?? "Falha ao enviar imagem para carrossel.");
+        return;
+      }
+      setLandingCarouselImages((prev) => `${prev.trim() ? `${prev.trim()}\n` : ""}${data.url}`);
+      setFeedback("Imagem adicionada ao carrossel.");
+    } catch {
+      setFeedback("Falha ao enviar imagem para carrossel.");
+    } finally {
+      setUploadingCarousel(false);
+    }
+  }
+
+  async function uploadHeroAsset(file: File) {
+    setUploadingHero(true);
+    setFeedback(null);
+    try {
+      const formData = new FormData();
+      formData.set("file", file);
+      const response = await fetch(`/api/admin/products/${product.id}/landing-assets`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as { ok: boolean; url?: string; error?: string };
+      if (!response.ok || !data.ok || !data.url) {
+        setFeedback(data.error ?? "Falha ao enviar imagem principal.");
+        return;
+      }
+      setLandingHeroImageUrl(data.url);
+      setFeedback("Imagem principal atualizada.");
+    } catch {
+      setFeedback("Falha ao enviar imagem principal.");
+    } finally {
+      setUploadingHero(false);
+    }
   }
 
   async function saveProduct() {
@@ -322,11 +433,13 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
               title: block.title.trim(),
               text: block.text.trim(),
               type: block.type,
+              imageUrl: block.imageUrl.trim() || null,
             }))
           : splitPairs(landingSections).map((item) => ({
               title: item.left,
               text: item.right,
               type: "section",
+              imageUrl: null,
             }));
 
       const response = await fetch(`/api/admin/products/${product.id}`, {
@@ -472,6 +585,12 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         <p className="mt-1 text-sm text-[var(--carvao)]/80">
           Monte uma página pública dinâmica para esse produto em <code>/lp/{landingSlug || product.slug}</code>.
         </p>
+        <ol className="mt-2 space-y-1 text-xs text-[var(--carvao)]/80">
+          <li>1. Escolha um template inicial.</li>
+          <li>2. Ajuste hero, textos e CTA.</li>
+          <li>3. Monte blocos no canvas com imagem por URL ou upload.</li>
+          <li>4. Salve e abra o preview público.</li>
+        </ol>
         <div className="mt-3 flex flex-wrap gap-2">
           {landingTemplates.map((template) => (
             <button
@@ -485,6 +604,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           ))}
         </div>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <p className="md:col-span-2 text-xs font-semibold uppercase tracking-wide text-[var(--carvao)]/75">Configuração principal</p>
           <label className="flex items-center gap-2 rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm">
             <input type="checkbox" checked={landingEnabled} onChange={(event) => setLandingEnabled(event.target.checked)} />
             Landing ativa
@@ -497,8 +617,24 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           <textarea value={landingDescription} onChange={(e) => setLandingDescription(e.target.value)} rows={3} placeholder="Descrição principal" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm md:col-span-2" />
           <input value={landingCtaLabel} onChange={(e) => setLandingCtaLabel(e.target.value)} placeholder="Texto do botão CTA" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <input value={landingCtaUrl} onChange={(e) => setLandingCtaUrl(e.target.value)} placeholder="URL do checkout/CTA" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+          <p className="md:col-span-2 mt-1 text-xs font-semibold uppercase tracking-wide text-[var(--carvao)]/75">Mídia e visual</p>
           <input value={landingHeroImageUrl} onChange={(e) => setLandingHeroImageUrl(e.target.value)} placeholder="Imagem principal (URL)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <input value={landingHeroVideoUrl} onChange={(e) => setLandingHeroVideoUrl(e.target.value)} placeholder="Vídeo principal (URL embed)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+          <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-[var(--ink)]/25 bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)]">
+            {uploadingHero ? "Enviando capa..." : "Upload imagem principal"}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              disabled={uploadingHero}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                void uploadHeroAsset(file);
+                event.currentTarget.value = "";
+              }}
+            />
+          </label>
           <input value={landingPrimaryColor} onChange={(e) => setLandingPrimaryColor(e.target.value)} placeholder="Cor primária (#0d111c)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <input value={landingSecondaryColor} onChange={(e) => setLandingSecondaryColor(e.target.value)} placeholder="Cor secundária (#f7f6f4)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <input value={landingAccentColor} onChange={(e) => setLandingAccentColor(e.target.value)} placeholder="Cor destaque (#ebd1a4)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
@@ -513,74 +649,174 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         </div>
 
         <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <p className="md:col-span-2 text-xs font-semibold uppercase tracking-wide text-[var(--carvao)]/75">Blocos complementares</p>
           <textarea value={landingBullets} onChange={(e) => setLandingBullets(e.target.value)} rows={5} placeholder="Bullets (1 por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
-          <textarea value={landingCarouselImages} onChange={(e) => setLandingCarouselImages(e.target.value)} rows={5} placeholder="Carrossel de imagens (1 URL por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+          <div className="space-y-2">
+            <textarea value={landingCarouselImages} onChange={(e) => setLandingCarouselImages(e.target.value)} rows={5} placeholder="Carrossel de imagens (1 URL por linha)" className="w-full rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
+            <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-[var(--ink)]/25 bg-white px-3 py-1.5 text-xs font-semibold text-[var(--ink)]">
+              {uploadingCarousel ? "Enviando..." : "Upload para carrossel"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                className="hidden"
+                disabled={uploadingCarousel}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void uploadCarouselAsset(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+          </div>
           <textarea value={landingTestimonials} onChange={(e) => setLandingTestimonials(e.target.value)} rows={5} placeholder="Depoimentos: Nome|Texto (1 por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <textarea value={landingFaq} onChange={(e) => setLandingFaq(e.target.value)} rows={5} placeholder="FAQ: Pergunta|Resposta (1 por linha)" className="rounded-lg border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm" />
           <div className="rounded-xl border border-[var(--dourado)]/40 bg-white p-3 md:col-span-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold">Canvas de blocos (arraste para reordenar)</p>
+              <p className="text-sm font-semibold">Canvas visual (arraste para reordenar)</p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={() => addBlock("section")} className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-xs font-semibold">+ Seção</button>
                 <button type="button" onClick={() => addBlock("benefit")} className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-xs font-semibold">+ Benefício</button>
                 <button type="button" onClick={() => addBlock("faq")} className="rounded-md border border-[var(--ink)]/25 bg-white px-2 py-1 text-xs font-semibold">+ FAQ</button>
               </div>
             </div>
-            <div className="mt-3 space-y-2">
-              {landingBlocks.map((block, index) => (
-                <article
-                  key={block.id}
-                  draggable
-                  onDragStart={() => setDraggingBlockId(block.id)}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => onDropBlock(block.id)}
-                  className={`rounded-lg border bg-[var(--creme)]/70 p-3 ${draggingBlockId === block.id ? "border-[var(--ink)]" : "border-[var(--dourado)]/40"}`}
-                >
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--carvao)]/80">Bloco {index + 1}</span>
-                    <div className="flex gap-1">
-                      <button type="button" onClick={() => moveBlockUp(block.id)} className="rounded border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold">↑</button>
-                      <button type="button" onClick={() => moveBlockDown(block.id)} className="rounded border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold">↓</button>
-                      <button type="button" onClick={() => removeBlock(block.id)} className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700">Excluir</button>
-                    </div>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-[170px_1fr]">
-                    <select
-                      value={block.type}
-                      onChange={(event) => updateBlock(block.id, "type", event.target.value)}
-                      className="rounded-md border border-[var(--dourado)]/45 bg-white px-2 py-2 text-xs"
+
+            <div className="mt-3 grid gap-3 lg:grid-cols-[260px_1fr]">
+              <aside className="rounded-lg border border-[var(--dourado)]/35 bg-[var(--creme)]/55 p-2">
+                <p className="px-1 text-xs font-semibold text-[var(--carvao)]/75">Camadas da página</p>
+                <div className="mt-2 max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+                  {landingBlocks.map((block, index) => (
+                    <button
+                      key={block.id}
+                      type="button"
+                      draggable
+                      onDragStart={() => setDraggingBlockId(block.id)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => onDropBlock(block.id)}
+                      onClick={() => setSelectedBlockId(block.id)}
+                      className={`w-full rounded-md border px-2 py-2 text-left text-xs ${
+                        selectedBlock?.id === block.id
+                          ? "border-[var(--ink)] bg-[var(--ink)] text-white"
+                          : "border-[var(--dourado)]/40 bg-white text-[var(--carvao)]"
+                      }`}
                     >
-                      <option value="section">Seção</option>
-                      <option value="benefit">Benefício</option>
-                      <option value="faq">FAQ</option>
-                    </select>
-                    <input
-                      value={block.title}
-                      onChange={(event) => updateBlock(block.id, "title", event.target.value)}
-                      className="rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
-                      placeholder="Título do bloco"
+                      <p className="font-semibold">#{index + 1} • {block.title || "Sem título"}</p>
+                      <p className="mt-0.5 opacity-80">{block.type}</p>
+                    </button>
+                  ))}
+                </div>
+              </aside>
+
+              <div className="space-y-3">
+                {selectedBlock ? (
+                  <article className="rounded-lg border border-[var(--dourado)]/35 bg-[var(--creme)]/60 p-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-[var(--carvao)]/80">
+                        Editando bloco
+                      </span>
+                      <div className="flex gap-1">
+                        <button type="button" onClick={() => moveBlockUp(selectedBlock.id)} className="rounded border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold">↑</button>
+                        <button type="button" onClick={() => moveBlockDown(selectedBlock.id)} className="rounded border border-[var(--ink)]/25 bg-white px-2 py-1 text-[11px] font-semibold">↓</button>
+                        <button type="button" onClick={() => removeBlock(selectedBlock.id)} className="rounded border border-red-300 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700">Excluir</button>
+                      </div>
+                    </div>
+                    <div className="grid gap-2 md:grid-cols-[170px_1fr]">
+                      <select
+                        value={selectedBlock.type}
+                        onChange={(event) => updateBlock(selectedBlock.id, "type", event.target.value)}
+                        className="rounded-md border border-[var(--dourado)]/45 bg-white px-2 py-2 text-xs"
+                      >
+                        <option value="section">Seção</option>
+                        <option value="benefit">Benefício</option>
+                        <option value="faq">FAQ</option>
+                      </select>
+                      <input
+                        value={selectedBlock.title}
+                        onChange={(event) => updateBlock(selectedBlock.id, "title", event.target.value)}
+                        className="rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                        placeholder="Título do bloco"
+                      />
+                    </div>
+                    <textarea
+                      value={selectedBlock.text}
+                      onChange={(event) => updateBlock(selectedBlock.id, "text", event.target.value)}
+                      className="mt-2 w-full rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                      rows={3}
+                      placeholder="Conteúdo do bloco"
                     />
+                    <div className="mt-2 grid gap-2 md:grid-cols-[1fr_auto]">
+                      <input
+                        value={selectedBlock.imageUrl}
+                        onChange={(event) => updateBlockImage(selectedBlock.id, event.target.value)}
+                        className="rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
+                        placeholder="Imagem da seção (URL)"
+                      />
+                      <label className="inline-flex cursor-pointer items-center justify-center rounded-md border border-[var(--ink)]/25 bg-white px-3 py-2 text-xs font-semibold text-[var(--ink)]">
+                        {uploadingBlockId === selectedBlock.id ? "Enviando..." : "Upload imagem"}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          className="hidden"
+                          disabled={uploadingBlockId === selectedBlock.id}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (!file) return;
+                            void uploadLandingAsset(selectedBlock.id, file);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </article>
+                ) : (
+                  <p className="rounded-md border border-dashed border-[var(--dourado)]/45 bg-[var(--creme)]/60 p-3 text-xs text-[var(--carvao)]/70">
+                    Nenhum bloco selecionado.
+                  </p>
+                )}
+
+                <div className="rounded-lg border border-[var(--dourado)]/35 bg-white p-3">
+                  <p className="text-xs font-semibold text-[var(--carvao)]/75">Preview em tempo real</p>
+                  <div className="mt-2 max-h-[32rem] space-y-3 overflow-y-auto rounded-md border border-[var(--dourado)]/30 bg-[var(--creme)]/45 p-3">
+                    {landingBlocks.map((block, index) => (
+                      <article
+                        key={`preview-${block.id}`}
+                        draggable
+                        onDragStart={() => setDraggingBlockId(block.id)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => onDropBlock(block.id)}
+                        onClick={() => setSelectedBlockId(block.id)}
+                        className={`cursor-pointer rounded-lg border bg-white p-3 transition ${
+                          selectedBlock?.id === block.id ? "border-[var(--ink)] shadow-sm" : "border-[var(--dourado)]/35"
+                        }`}
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-sm font-bold">{block.title || `Bloco ${index + 1}`}</p>
+                          <span className="rounded-full border border-[var(--ink)]/25 px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--carvao)]/80">
+                            {block.type}
+                          </span>
+                        </div>
+                        {block.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={block.imageUrl} alt={block.title || "Imagem da seção"} className="mb-2 h-28 w-full rounded-md object-cover" />
+                        ) : null}
+                        <p className="text-xs text-[var(--carvao)]/85">{block.text || "Sem conteúdo ainda."}</p>
+                      </article>
+                    ))}
+                    {landingBlocks.length === 0 ? (
+                      <p className="rounded-md border border-dashed border-[var(--dourado)]/45 bg-white p-3 text-xs text-[var(--carvao)]/70">
+                        Nenhum bloco no canvas ainda. Use os botões acima para adicionar.
+                      </p>
+                    ) : null}
                   </div>
-                  <textarea
-                    value={block.text}
-                    onChange={(event) => updateBlock(block.id, "text", event.target.value)}
-                    className="mt-2 w-full rounded-md border border-[var(--dourado)]/45 bg-white px-3 py-2 text-sm"
-                    rows={2}
-                    placeholder="Conteúdo do bloco"
-                  />
-                </article>
-              ))}
-              {landingBlocks.length === 0 ? (
-                <p className="rounded-md border border-dashed border-[var(--dourado)]/45 bg-[var(--creme)]/60 p-3 text-xs text-[var(--carvao)]/70">
-                  Nenhum bloco no canvas ainda. Use os botões acima para adicionar.
-                </p>
-              ) : null}
+                </div>
+              </div>
             </div>
+
             <textarea
               value={landingSections}
               onChange={(e) => setLandingSections(e.target.value)}
               rows={3}
-              placeholder="Backup bruto: Seções em formato Título|Texto"
+              placeholder="Backup bruto: Título|Texto|Imagem"
               className="mt-3 w-full rounded-md border border-[var(--dourado)]/35 bg-white px-3 py-2 text-xs"
             />
           </div>

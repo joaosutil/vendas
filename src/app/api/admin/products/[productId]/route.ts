@@ -56,6 +56,8 @@ const updateProductSchema = z.object({
           z.object({
             title: z.string().trim().max(180),
             text: z.string().trim().max(1200),
+            type: z.enum(["section", "benefit", "faq"]).optional(),
+            imageUrl: z.string().trim().max(600).optional().nullable(),
           }),
         )
         .max(20)

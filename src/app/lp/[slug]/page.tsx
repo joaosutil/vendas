@@ -63,18 +63,31 @@ export default async function DynamicLandingPage({ params }: LandingRouteProps) 
       carouselImages={asStringArray(config.carouselImages)}
       testimonials={asPairArray(config.testimonials, "name", "text") as Array<{ name: string; text: string }>}
       faq={asPairArray(config.faq, "question", "answer") as Array<{ question: string; answer: string }>}
-      contentSections={Array.isArray(config.contentSections)
-        ? (config.contentSections
-            .map((item) => {
-              if (!item || typeof item !== "object") return null;
-              const record = item as Record<string, unknown>;
-              const title = asString(record.title);
-              const text = asString(record.text);
-              if (!title || !text) return null;
-              return { title, text };
-            })
-            .filter(Boolean) as Array<{ title: string; text: string }>)
-        : []}
+      contentSections={
+        Array.isArray(config.contentSections)
+          ? (config.contentSections
+              .map((item) => {
+                if (!item || typeof item !== "object") return null;
+                const record = item as Record<string, unknown>;
+                const title = asString(record.title);
+                const text = asString(record.text);
+                if (!title || !text) return null;
+                const rawType = asString(record.type);
+                const type =
+                  rawType === "benefit" || rawType === "faq" || rawType === "section"
+                    ? (rawType as "section" | "benefit" | "faq")
+                    : undefined;
+                const imageUrl = asString(record.imageUrl) || null;
+                return { title, text, type, imageUrl };
+              })
+              .filter(Boolean) as Array<{
+                title: string;
+                text: string;
+                type?: "section" | "benefit" | "faq";
+                imageUrl?: string | null;
+              }>)
+          : []
+      }
       primaryColor={asString(config.primaryColor, "#0d111c")}
       secondaryColor={asString(config.secondaryColor, "#f7f6f4")}
       accentColor={asString(config.accentColor, "#ebd1a4")}

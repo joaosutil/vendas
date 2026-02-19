@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
 
 type ProductLandingPageProps = {
   title: string;
@@ -17,7 +18,7 @@ type ProductLandingPageProps = {
   carouselImages: string[];
   testimonials: Array<{ name: string; text: string }>;
   faq: Array<{ question: string; answer: string }>;
-  contentSections: Array<{ title: string; text: string }>;
+  contentSections: Array<{ title: string; text: string; type?: "section" | "benefit" | "faq"; imageUrl?: string | null }>;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -51,9 +52,22 @@ function Card({
 }
 
 export function ProductLandingPage(props: ProductLandingPageProps) {
+  const [activeSlide, setActiveSlide] = useState(0);
   const surfaceText = props.themeMode === "dark" ? "#e5e7eb" : "#1f2937";
   const rootBackground = props.themeMode === "dark" ? "#0b1220" : props.secondaryColor;
   const sectionTitleClass = "text-3xl font-black md:text-4xl";
+  const carouselImages = useMemo(
+    () => props.carouselImages.filter((image) => image.trim().length > 0),
+    [props.carouselImages],
+  );
+
+  useEffect(() => {
+    if (carouselImages.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % carouselImages.length);
+    }, 4500);
+    return () => window.clearInterval(timer);
+  }, [carouselImages.length]);
 
   return (
     <main
@@ -123,16 +137,55 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
         </div>
       </section>
 
-      {props.carouselImages.length > 0 ? (
+      {carouselImages.length > 0 ? (
         <section className="mx-auto max-w-6xl px-4 py-10">
-          <h2 className={sectionTitleClass}>Galeria</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {props.carouselImages.map((src, idx) => (
-              <Card key={`${src}-${idx}`} animationsEnabled={props.animationsEnabled} delay={idx * 0.03}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt={`Slide ${idx + 1}`} className="h-52 w-full rounded-lg object-cover" />
-              </Card>
-            ))}
+          <div className="flex items-end justify-between gap-4">
+            <h2 className={sectionTitleClass}>Carrossel visual</h2>
+            {carouselImages.length > 1 ? (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)}
+                  className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur"
+                >
+                  Anterior
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSlide((prev) => (prev + 1) % carouselImages.length)}
+                  className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur"
+                >
+                  Próximo
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/30 bg-black/25 p-2 shadow-2xl">
+            <motion.div
+              animate={{ x: `-${activeSlide * 100}%` }}
+              transition={{ duration: 0.45, ease: "easeInOut" }}
+              className="flex"
+            >
+              {carouselImages.map((src, idx) => (
+                <div key={`${src}-${idx}`} className="w-full shrink-0 px-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt={`Slide ${idx + 1}`} className="h-[300px] w-full rounded-xl object-cover md:h-[420px]" />
+                </div>
+              ))}
+            </motion.div>
+            {carouselImages.length > 1 ? (
+              <div className="mt-3 flex justify-center gap-2">
+                {carouselImages.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveSlide(idx)}
+                    aria-label={`Ir para slide ${idx + 1}`}
+                    className={`h-2.5 w-2.5 rounded-full ${idx === activeSlide ? "bg-white" : "bg-white/45"}`}
+                  />
+                ))}
+              </div>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -143,7 +196,18 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             {props.contentSections.map((section, idx) => (
               <Card key={`${section.title}-${idx}`} animationsEnabled={props.animationsEnabled} delay={idx * 0.04}>
-                <h3 className="text-lg font-bold">{section.title}</h3>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="text-lg font-bold">{section.title}</h3>
+                  {section.type ? (
+                    <span className="rounded-full border border-white/35 bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                      {section.type}
+                    </span>
+                  ) : null}
+                </div>
+                {section.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={section.imageUrl} alt={section.title} className="mb-3 h-44 w-full rounded-lg object-cover" />
+                ) : null}
                 <p className="mt-2 text-sm opacity-90">{section.text}</p>
               </Card>
             ))}
