@@ -63,6 +63,27 @@ const updateProductSchema = z.object({
         .max(20)
         .optional()
         .nullable(),
+      blocks: z
+        .array(
+          z.object({
+            id: z.string().trim().max(120),
+            type: z.enum(["hero", "text", "image", "video", "button", "carousel", "benefits", "faq", "input"]),
+            title: z.string().trim().max(220).optional(),
+            text: z.string().trim().max(4000).optional(),
+            imageUrl: z.string().trim().max(1000).optional(),
+            videoUrl: z.string().trim().max(1000).optional(),
+            buttonLabel: z.string().trim().max(180).optional(),
+            buttonUrl: z.string().trim().max(1000).optional(),
+            placeholder: z.string().trim().max(240).optional(),
+            items: z.array(z.string().trim().max(1200)).max(50).optional(),
+            backgroundColor: z.string().trim().max(32).optional(),
+            textColor: z.string().trim().max(32).optional(),
+            animation: z.enum(["none", "fade", "slide-up", "zoom"]).optional(),
+          }),
+        )
+        .max(80)
+        .optional()
+        .nullable(),
     })
     .optional()
     .nullable(),

@@ -88,6 +88,53 @@ export default async function DynamicLandingPage({ params }: LandingRouteProps) 
               }>)
           : []
       }
+      blocks={
+        Array.isArray(config.blocks)
+          ? (config.blocks
+              .map((item, index) => {
+                if (!item || typeof item !== "object") return null;
+                const record = item as Record<string, unknown>;
+                const typeRaw = asString(record.type);
+                const validTypes = ["hero", "text", "image", "video", "button", "carousel", "benefits", "faq", "input"];
+                if (!validTypes.includes(typeRaw)) return null;
+                const items = Array.isArray(record.items)
+                  ? (record.items as unknown[]).map((entry) => asString(entry)).filter(Boolean)
+                  : [];
+                return {
+                  id: asString(record.id, `block-${index}`),
+                  type: typeRaw as "hero" | "text" | "image" | "video" | "button" | "carousel" | "benefits" | "faq" | "input",
+                  title: asString(record.title),
+                  text: asString(record.text),
+                  imageUrl: asString(record.imageUrl),
+                  videoUrl: asString(record.videoUrl),
+                  buttonLabel: asString(record.buttonLabel),
+                  buttonUrl: asString(record.buttonUrl),
+                  placeholder: asString(record.placeholder),
+                  items,
+                  backgroundColor: asString(record.backgroundColor),
+                  textColor: asString(record.textColor),
+                  animation: (["none", "fade", "slide-up", "zoom"].includes(asString(record.animation))
+                    ? asString(record.animation)
+                    : "fade") as "none" | "fade" | "slide-up" | "zoom",
+                };
+              })
+              .filter(Boolean) as Array<{
+                id: string;
+                type: "hero" | "text" | "image" | "video" | "button" | "carousel" | "benefits" | "faq" | "input";
+                title: string;
+                text: string;
+                imageUrl: string;
+                videoUrl: string;
+                buttonLabel: string;
+                buttonUrl: string;
+                placeholder: string;
+                items: string[];
+                backgroundColor: string;
+                textColor: string;
+                animation: "none" | "fade" | "slide-up" | "zoom";
+              }>)
+          : []
+      }
       primaryColor={asString(config.primaryColor, "#0d111c")}
       secondaryColor={asString(config.secondaryColor, "#f7f6f4")}
       accentColor={asString(config.accentColor, "#ebd1a4")}

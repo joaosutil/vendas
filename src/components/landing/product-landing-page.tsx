@@ -19,6 +19,21 @@ type ProductLandingPageProps = {
   testimonials: Array<{ name: string; text: string }>;
   faq: Array<{ question: string; answer: string }>;
   contentSections: Array<{ title: string; text: string; type?: "section" | "benefit" | "faq"; imageUrl?: string | null }>;
+  blocks?: Array<{
+    id: string;
+    type: "hero" | "text" | "image" | "video" | "button" | "carousel" | "benefits" | "faq" | "input";
+    title: string;
+    text: string;
+    imageUrl: string;
+    videoUrl: string;
+    buttonLabel: string;
+    buttonUrl: string;
+    placeholder: string;
+    items: string[];
+    backgroundColor: string;
+    textColor: string;
+    animation: "none" | "fade" | "slide-up" | "zoom";
+  }>;
   primaryColor: string;
   secondaryColor: string;
   accentColor: string;
@@ -69,6 +84,36 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
     return () => window.clearInterval(timer);
   }, [carouselImages.length]);
 
+  const canvasBlocks = useMemo(
+    () => (props.blocks ?? []).filter((block) => block && block.type),
+    [props.blocks],
+  );
+
+  const hasCanvasBlocks = canvasBlocks.length > 0;
+
+  function animationFor(blockAnimation: "none" | "fade" | "slide-up" | "zoom", index: number) {
+    if (!props.animationsEnabled || blockAnimation === "none") return {};
+    if (blockAnimation === "zoom") {
+      return {
+        initial: { opacity: 0, scale: 0.96 },
+        whileInView: { opacity: 1, scale: 1 },
+        transition: { duration: 0.35, delay: index * 0.04 },
+      };
+    }
+    if (blockAnimation === "slide-up") {
+      return {
+        initial: { opacity: 0, y: 24 },
+        whileInView: { opacity: 1, y: 0 },
+        transition: { duration: 0.35, delay: index * 0.04 },
+      };
+    }
+    return {
+      initial: { opacity: 0 },
+      whileInView: { opacity: 1 },
+      transition: { duration: 0.35, delay: index * 0.04 },
+    };
+  }
+
   return (
     <main
       style={
@@ -85,6 +130,163 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
         } as React.CSSProperties
       }
     >
+      {hasCanvasBlocks ? (
+        <section className="mx-auto max-w-6xl space-y-4 px-4 py-10 md:py-14">
+          {canvasBlocks.map((block, index) => (
+            <motion.article
+              key={block.id}
+              viewport={{ once: true, amount: 0.2 }}
+              {...animationFor(block.animation, index)}
+              className="rounded-2xl border border-white/30 p-4 shadow-xl md:p-6"
+              style={{
+                background: block.backgroundColor || "rgba(255,255,255,0.78)",
+                color: block.textColor || surfaceText,
+              }}
+            >
+              {block.type === "hero" ? (
+                <div className="grid gap-6 md:grid-cols-2 md:items-center">
+                  <div>
+                    <h1 className="text-3xl leading-tight font-black md:text-5xl">{block.title || props.title}</h1>
+                    {block.text ? <p className="mt-3 text-sm md:text-base">{block.text}</p> : null}
+                    {block.buttonLabel && block.buttonUrl ? (
+                      <a
+                        href={block.buttonUrl}
+                        className="mt-4 inline-flex rounded-xl px-5 py-3 text-sm font-black text-white"
+                        style={{ backgroundColor: props.primaryColor }}
+                      >
+                        {block.buttonLabel}
+                      </a>
+                    ) : null}
+                  </div>
+                  <div>
+                    {block.videoUrl ? (
+                      <iframe src={block.videoUrl} className="h-64 w-full rounded-xl border border-white/25 md:h-80" title={block.title || props.title} allowFullScreen />
+                    ) : block.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl object-cover" />
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+
+              {block.type === "text" ? (
+                <>
+                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                </>
+              ) : null}
+
+              {block.type === "image" ? (
+                <>
+                  {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl object-cover" />
+                  ) : null}
+                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                </>
+              ) : null}
+
+              {block.type === "video" ? (
+                <>
+                  {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.videoUrl ? (
+                    <iframe src={block.videoUrl} className="h-64 w-full rounded-xl border border-white/25 md:h-80" title={block.title || props.title} allowFullScreen />
+                  ) : null}
+                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                </>
+              ) : null}
+
+              {block.type === "button" ? (
+                <div className="text-center">
+                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                  <a
+                    href={block.buttonUrl || props.ctaUrl}
+                    className="mt-4 inline-flex rounded-xl px-6 py-3 text-sm font-black text-white"
+                    style={{ backgroundColor: props.primaryColor }}
+                  >
+                    {block.buttonLabel || props.ctaLabel}
+                  </a>
+                </div>
+              ) : null}
+
+              {block.type === "benefits" ? (
+                <>
+                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  <ul className="mt-3 space-y-2">
+                    {block.items.map((item, idx) => (
+                      <li key={`${block.id}-${idx}`}>✅ {item}</li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+
+              {block.type === "faq" ? (
+                <>
+                  <h2 className="text-2xl font-black md:text-3xl">{block.title || "Pergunta frequente"}</h2>
+                  <p className="mt-2 text-sm md:text-base">{block.text}</p>
+                </>
+              ) : null}
+
+              {block.type === "input" ? (
+                <div className="space-y-3">
+                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.text ? <p className="text-sm md:text-base">{block.text}</p> : null}
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      placeholder={block.placeholder || "Digite aqui"}
+                      className="min-w-[240px] flex-1 rounded-xl border border-white/35 bg-white/90 px-4 py-3 text-sm text-[#0f172a]"
+                      readOnly
+                    />
+                    <button type="button" className="rounded-xl bg-[var(--lp-primary)] px-4 py-3 text-sm font-bold text-white">
+                      Enviar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              {block.type === "carousel" ? (
+                <div>
+                  {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.items.length > 0 ? (
+                    <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-black/20 p-2">
+                      <motion.div
+                        animate={{ x: `-${activeSlide * 100}%` }}
+                        transition={{ duration: 0.45, ease: "easeInOut" }}
+                        className="flex"
+                      >
+                        {block.items.map((src, idx) => (
+                          <div key={`${block.id}-item-${idx}`} className="w-full shrink-0 px-1">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={src} alt={`Slide ${idx + 1}`} className="h-[250px] w-full rounded-xl object-cover md:h-[420px]" />
+                          </div>
+                        ))}
+                      </motion.div>
+                      {block.items.length > 1 ? (
+                        <div className="mt-3 flex justify-center gap-2">
+                          {block.items.map((_, idx) => (
+                            <button
+                              key={`${block.id}-dot-${idx}`}
+                              type="button"
+                              onClick={() => setActiveSlide(idx)}
+                              aria-label={`Ir para slide ${idx + 1}`}
+                              className={`h-2.5 w-2.5 rounded-full ${idx === activeSlide ? "bg-white" : "bg-white/45"}`}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm opacity-80">Adicione imagens para o carrossel.</p>
+                  )}
+                </div>
+              ) : null}
+            </motion.article>
+          ))}
+        </section>
+      ) : (
+      <>
       <section className="mx-auto max-w-6xl px-4 py-12 md:py-18">
         <div className="grid gap-6 md:grid-cols-2 md:items-center">
           <div>
@@ -260,6 +462,8 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
         </div>
       </section>
       <div style={{ backgroundColor: rootBackground }} />
+      </>
+      )}
     </main>
   );
 }
