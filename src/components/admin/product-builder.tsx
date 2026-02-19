@@ -123,6 +123,8 @@ type ProductBuilderProps = {
   };
 };
 
+type BuilderWorkspaceTab = "product" | "landing" | "content";
+
 export function ProductBuilder({ product }: ProductBuilderProps) {
   const router = useRouter();
   const [title, setTitle] = useState(product.title);
@@ -312,6 +314,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const [readerTheme, setReaderTheme] = useState<"light" | "dark" | "reading">("light");
   const [templateNicheFilter, setTemplateNicheFilter] = useState("all");
   const [stageViewport, setStageViewport] = useState<"desktop" | "mobile">("desktop");
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<BuilderWorkspaceTab>("landing");
 
   const historyRef = useRef<LandingCanvasBlock[][]>([]);
   const historyIndexRef = useRef(-1);
@@ -1122,6 +1125,45 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     <div className="space-y-4">
       {feedback ? <div className="rounded-xl border border-white/60 bg-white/70 p-3 text-sm">{feedback}</div> : null}
 
+      <section className="rounded-2xl border border-white/60 bg-white/75 p-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveWorkspaceTab("product")}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              activeWorkspaceTab === "product"
+                ? "bg-[var(--ink)] text-white"
+                : "border border-[var(--dourado)]/45 bg-white text-[var(--carvao)]"
+            }`}
+          >
+            Produto
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveWorkspaceTab("landing")}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              activeWorkspaceTab === "landing"
+                ? "bg-[var(--ink)] text-white"
+                : "border border-[var(--dourado)]/45 bg-white text-[var(--carvao)]"
+            }`}
+          >
+            Landing (Tela cheia)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveWorkspaceTab("content")}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+              activeWorkspaceTab === "content"
+                ? "bg-[var(--ink)] text-white"
+                : "border border-[var(--dourado)]/45 bg-white text-[var(--carvao)]"
+            }`}
+          >
+            Conteudo
+          </button>
+        </div>
+      </section>
+
+      {activeWorkspaceTab === "product" ? (
       <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
         <h2 className="text-lg font-bold">Configuração do produto</h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -1142,9 +1184,12 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           Salvar produto
         </button>
       </section>
+      ) : null}
 
+      {activeWorkspaceTab === "landing" ? (
+      <div className="relative left-1/2 right-1/2 w-screen -translate-x-1/2 px-2 md:px-4">
       <section
-        className={`overflow-hidden rounded-3xl border shadow-[0_20px_70px_rgba(10,20,45,0.16)] backdrop-blur ${
+        className={`mx-auto w-full max-w-[1900px] overflow-hidden rounded-3xl border shadow-[0_20px_70px_rgba(10,20,45,0.16)] backdrop-blur ${
           builderIsDark ? "border-slate-600/65 bg-slate-950/85" : "border-white/70 bg-white/80"
         }`}
       >
@@ -1402,7 +1447,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
               O palco abaixo usa o mesmo componente da LP publicada. Clique em um bloco para editar no inspector.
             </p>
             <div
-              className={`max-h-[42rem] space-y-3 overflow-y-auto rounded-xl border p-3 ${
+              className={`space-y-3 rounded-xl border p-3 ${
                 builderIsDark ? "border-slate-600/65 bg-slate-950/45" : "border-[var(--dourado)]/30 bg-[var(--creme)]/45"
               }`}
             >
@@ -1555,7 +1600,10 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           </aside>
         </div>
       </section>
+      </div>
+      ) : null}
 
+      {activeWorkspaceTab === "content" ? (
       <section className="rounded-2xl border border-white/60 bg-white/75 p-4">
         <h2 className="text-lg font-bold">Construtor de conteúdo ({typeLabel})</h2>
 
@@ -1661,6 +1709,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           </div>
         ) : null}
       </section>
+      ) : null}
     </div>
   );
 }
