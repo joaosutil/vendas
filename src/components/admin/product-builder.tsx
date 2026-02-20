@@ -446,6 +446,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
   const historyRef = useRef<LandingCanvasBlock[][]>([]);
   const historyIndexRef = useRef(-1);
   const skipHistorySyncRef = useRef(false);
+  const inspectorPanelRef = useRef<HTMLElement | null>(null);
   const [historyCursor, setHistoryCursor] = useState({ index: 0, total: 1 });
 
   const landingTemplates = useMemo(
@@ -786,6 +787,15 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (!selectedBlockId) return;
+    const panel = inspectorPanelRef.current;
+    if (!panel) return;
+
+    panel.scrollTo({ top: 0, behavior: "smooth" });
+    panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedBlockId]);
 
   function syncSectionsFromBlocks(blocks: LandingCanvasBlock[]) {
     const serialized = blocks
@@ -1372,7 +1382,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
       {activeWorkspaceTab === "landing" ? (
       <div className="relative left-1/2 right-1/2 w-screen -translate-x-1/2 px-2 md:px-4">
       <section
-        className={`mx-auto w-full max-w-[1900px] overflow-hidden rounded-3xl border shadow-[0_20px_70px_rgba(10,20,45,0.16)] backdrop-blur ${
+        className={`mx-auto w-full max-w-[1900px] overflow-visible rounded-3xl border shadow-[0_20px_70px_rgba(10,20,45,0.16)] backdrop-blur ${
           builderIsDark ? "border-slate-600/65 bg-slate-950/85" : "border-white/70 bg-white/80"
         }`}
       >
@@ -1665,7 +1675,8 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
             </div>
           </div>
           <aside
-            className={`rounded-2xl border p-3 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto ${
+            ref={inspectorPanelRef}
+            className={`self-start rounded-2xl border p-3 md:sticky md:top-3 md:max-h-[calc(100vh-1.5rem)] md:overflow-y-auto ${
               builderIsDark ? "border-slate-600/60 bg-slate-950/70 text-slate-100" : "border-[var(--dourado)]/35 bg-white"
             }`}
           >
