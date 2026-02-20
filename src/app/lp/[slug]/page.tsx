@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ProductLandingPage } from "@/components/landing/product-landing-page";
 
+export const dynamic = "force-dynamic";
+
 type LandingRouteProps = {
   params: Promise<{ slug: string }>;
 };

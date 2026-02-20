@@ -329,7 +329,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
               ? String(block.texture)
               : base.texture
           ) as LandingCanvasBlock["texture"],
-          textureOpacity: clampNumber(Number(block.textureOpacity ?? base.textureOpacity), 0, 70),
+          textureOpacity: clampNumber(Number(block.textureOpacity ?? base.textureOpacity), 0, 100),
           widthMode: (
             ["full", "wide", "normal", "narrow"].includes(String(block.widthMode))
               ? String(block.widthMode)
@@ -1797,7 +1797,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
                     <label className="flex items-center justify-between gap-2">
                       Intensidade textura <span>{selectedBlock.textureOpacity}%</span>
                     </label>
-                    <input type="range" min={0} max={70} value={selectedBlock.textureOpacity} onChange={(event) => updateBlockNumber(selectedBlock.id, "textureOpacity", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <input type="range" min={0} max={100} value={selectedBlock.textureOpacity} onChange={(event) => updateBlockNumber(selectedBlock.id, "textureOpacity", Number(event.target.value))} className="w-full accent-sky-500" />
                   </div>
                 </div>
 

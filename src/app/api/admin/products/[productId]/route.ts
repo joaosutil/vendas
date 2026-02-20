@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -82,7 +83,7 @@ const updateProductSchema = z.object({
             animationDuration: z.number().min(0.2).max(2).optional(),
             animationDelay: z.number().min(0).max(0.8).optional(),
             texture: z.enum(["none", "grid", "dots", "diagonal", "noise"]).optional(),
-            textureOpacity: z.number().min(0).max(70).optional(),
+            textureOpacity: z.number().min(0).max(100).optional(),
             widthMode: z.enum(["full", "wide", "normal", "narrow"]).optional(),
             paddingX: z.number().min(8).max(80).optional(),
             paddingY: z.number().min(8).max(96).optional(),
@@ -111,6 +112,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
   if (!user || !isAdminUser(user)) return NextResponse.json({ ok: false }, { status: 403 });
 
   const { productId } = await context.params;
+  const existing = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { slug: true, landingSlug: true },
+  });
+  if (!existing) return NextResponse.json({ ok: false, error: "Product not found" }, { status: 404 });
+
   const body = await request.json().catch(() => null);
   const parsed = updateProductSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
@@ -143,6 +150,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ produ
       landingConfig: true,
     },
   });
+
+  const revalidateSlugs = new Set<string>();
+  for (const value of [existing.slug, existing.landingSlug, updated.slug, updated.landingSlug]) {
+    if (typeof value === "string" && value.trim()) revalidateSlugs.add(value.trim());
+  }
+  for (const value of revalidateSlugs) {
+    revalidatePath(`/lp/${value}`);
+  }
 
   return NextResponse.json({ ok: true, product: updated });
 }

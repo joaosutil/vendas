@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/current-user";
 import { isAdminUser } from "@/lib/is-admin-user";
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
-const MAX_SIZE = 4 * 1024 * 1024;
+const MAX_SIZE = 8 * 1024 * 1024;
 
 function sanitize(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9.-]/g, "-").replace(/-+/g, "-");
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Tipo inválido. Use PNG/JPG/WEBP/GIF." }, { status: 400 });
     }
     if (fileEntry.size > MAX_SIZE) {
-      return NextResponse.json({ ok: false, error: "Arquivo maior que 4MB." }, { status: 413 });
+      return NextResponse.json({ ok: false, error: "Arquivo maior que 8MB." }, { status: 413 });
     }
 
     const bytes = Buffer.from(await fileEntry.arrayBuffer());

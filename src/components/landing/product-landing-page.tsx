@@ -145,6 +145,18 @@ function textureLayer(texture: LandingCanvasTexture, opacity: number, themeMode:
   return "";
 }
 
+function textureSize(texture: LandingCanvasTexture) {
+  if (texture === "grid") return "22px 22px";
+  if (texture === "dots") return "16px 16px";
+  if (texture === "diagonal") return "18px 18px";
+  if (texture === "noise") return "180px 180px";
+  return "auto";
+}
+
+function hasGradientBackground(value: string) {
+  return /gradient\(/i.test(value);
+}
+
 export function ProductLandingPage(props: ProductLandingPageProps) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [canvasSlides, setCanvasSlides] = useState<Record<string, number>>({});
@@ -329,7 +341,35 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
     >
       {hasCanvasBlocks ? (
         <section className="mx-auto w-full max-w-[1400px] space-y-4 px-4 py-10 md:space-y-5 md:py-14">
-          {canvasBlocks.map((block, index) => (
+          {canvasBlocks.map((block, index) => {
+            const resolvedBackground = block.backgroundColor.trim() ? block.backgroundColor.trim() : defaultCanvasBackground;
+            const backgroundHasGradient = hasGradientBackground(resolvedBackground);
+            const textureImage =
+              block.texture !== "none" ? textureLayer(block.texture, block.textureOpacity, props.themeMode) : "";
+            const backgroundImage = textureImage
+              ? backgroundHasGradient
+                ? `${textureImage}, ${resolvedBackground}`
+                : textureImage
+              : backgroundHasGradient
+              ? resolvedBackground
+              : undefined;
+            const backgroundSize = textureImage
+              ? backgroundHasGradient
+                ? `${textureSize(block.texture)}, 100% 100%`
+                : textureSize(block.texture)
+              : backgroundHasGradient
+              ? "100% 100%"
+              : undefined;
+            const backgroundRepeat = textureImage ? (backgroundHasGradient ? "repeat, no-repeat" : "repeat") : undefined;
+            const backgroundPosition = textureImage
+              ? backgroundHasGradient
+                ? "0 0, center center"
+                : "0 0"
+              : backgroundHasGradient
+              ? "center center"
+              : undefined;
+
+            return (
             <motion.article
               key={block.id}
               viewport={props.editorMode ? undefined : { once: true, amount: 0.2 }}
@@ -348,7 +388,11 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
               tabIndex={props.editorMode ? 0 : undefined}
               style={{
                 borderColor: props.themeMode === "dark" ? "rgba(148, 163, 184, 0.32)" : "rgba(255,255,255,0.3)",
-                background: block.backgroundColor || defaultCanvasBackground,
+                backgroundColor: backgroundHasGradient ? undefined : resolvedBackground,
+                backgroundImage,
+                backgroundRepeat,
+                backgroundPosition,
+                backgroundSize,
                 color: block.textColor || surfaceText,
                 maxWidth: maxWidthForMode(block.widthMode),
                 marginInline: "auto",
@@ -356,11 +400,6 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                 borderRadius: `${block.radius}px`,
                 textAlign: block.textAlign,
                 boxShadow: shadowForLevel(block.shadow),
-                backgroundImage:
-                  block.texture !== "none"
-                    ? `${textureLayer(block.texture, block.textureOpacity, props.themeMode)}, ${block.backgroundColor || defaultCanvasBackground}`
-                    : undefined,
-                backgroundSize: block.texture === "grid" ? "20px 20px, auto" : block.texture === "dots" ? "18px 18px, auto" : "auto",
               }}
             >
               {block.type === "hero" ? (
@@ -524,45 +563,45 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                         ))}
                       </motion.div>
                       {block.items.length > 1 ? (
-                        <div className="mt-3 flex items-center justify-between gap-2">
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCanvasSlides((prev) => ({
-                                  ...prev,
-                                  [block.id]: ((prev[block.id] ?? 0) - 1 + block.items.length) % block.items.length,
-                                }))
-                              }
-                              className="rounded-full border border-white/35 bg-white/10 px-2 py-1 text-[11px] font-semibold"
-                            >
-                              Anterior
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCanvasSlides((prev) => ({
-                                  ...prev,
-                                  [block.id]: ((prev[block.id] ?? 0) + 1) % block.items.length,
-                                }))
-                              }
-                              className="rounded-full border border-white/35 bg-white/10 px-2 py-1 text-[11px] font-semibold"
-                            >
-                              Proximo
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCanvasSlides((prev) => ({
+                                ...prev,
+                                [block.id]: ((prev[block.id] ?? 0) - 1 + block.items.length) % block.items.length,
+                              }))
+                            }
+                            aria-label="Slide anterior"
+                            className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-full border border-white/40 bg-black/35 px-2.5 py-1.5 text-sm font-black text-white backdrop-blur transition hover:bg-black/55"
+                          >
+                            {"<"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCanvasSlides((prev) => ({
+                                ...prev,
+                                [block.id]: ((prev[block.id] ?? 0) + 1) % block.items.length,
+                              }))
+                            }
+                            aria-label="Próximo slide"
+                            className="absolute top-1/2 right-3 z-10 -translate-y-1/2 rounded-full border border-white/40 bg-black/35 px-2.5 py-1.5 text-sm font-black text-white backdrop-blur transition hover:bg-black/55"
+                          >
+                            {">"}
+                          </button>
+                          <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full border border-white/20 bg-black/35 px-2.5 py-1.5 backdrop-blur">
                           {block.items.map((_, idx) => (
                             <button
                               key={`${block.id}-dot-${idx}`}
                               type="button"
                               onClick={() => setCanvasSlides((prev) => ({ ...prev, [block.id]: idx }))}
                               aria-label={`Ir para slide ${idx + 1}`}
-                              className={`h-2.5 w-2.5 rounded-full ${(canvasSlides[block.id] ?? 0) === idx ? "bg-white" : "bg-white/45"}`}
+                              className={`h-2.5 w-2.5 rounded-full transition ${(canvasSlides[block.id] ?? 0) === idx ? "scale-110 bg-white" : "bg-white/45 hover:bg-white/70"}`}
                             />
                           ))}
                           </div>
-                        </div>
+                        </>
                       ) : null}
                     </div>
                   ) : (
@@ -571,7 +610,8 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                 </div>
               ) : null}
             </motion.article>
-          ))}
+            );
+          })}
         </section>
       ) : (
       <>
@@ -630,27 +670,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
 
       {carouselImages.length > 0 ? (
         <section className="mx-auto max-w-6xl px-4 py-10">
-          <div className="flex items-end justify-between gap-4">
-            <h2 className={sectionTitleClass}>Carrossel visual</h2>
-            {carouselImages.length > 1 ? (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)}
-                  className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur"
-                >
-                  Anterior
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveSlide((prev) => (prev + 1) % carouselImages.length)}
-                  className="rounded-full border border-white/30 bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur"
-                >
-                  Próximo
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <h2 className={sectionTitleClass}>Carrossel visual</h2>
           <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/30 bg-black/25 p-2 shadow-2xl">
             <motion.div
               animate={{ x: `-${normalizedActiveSlide * 100}%` }}
@@ -665,17 +685,35 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
               ))}
             </motion.div>
             {carouselImages.length > 1 ? (
-              <div className="mt-3 flex justify-center gap-2">
-                {carouselImages.map((_, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setActiveSlide(idx)}
-                    aria-label={`Ir para slide ${idx + 1}`}
-                    className={`h-2.5 w-2.5 rounded-full ${idx === normalizedActiveSlide ? "bg-white" : "bg-white/45"}`}
-                  />
-                ))}
-              </div>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setActiveSlide((prev) => (prev - 1 + carouselImages.length) % carouselImages.length)}
+                  aria-label="Slide anterior"
+                  className="absolute top-1/2 left-3 z-10 -translate-y-1/2 rounded-full border border-white/40 bg-black/35 px-2.5 py-1.5 text-sm font-black text-white backdrop-blur transition hover:bg-black/55"
+                >
+                  {"<"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveSlide((prev) => (prev + 1) % carouselImages.length)}
+                  aria-label="Próximo slide"
+                  className="absolute top-1/2 right-3 z-10 -translate-y-1/2 rounded-full border border-white/40 bg-black/35 px-2.5 py-1.5 text-sm font-black text-white backdrop-blur transition hover:bg-black/55"
+                >
+                  {">"}
+                </button>
+                <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-2 rounded-full border border-white/20 bg-black/35 px-2.5 py-1.5 backdrop-blur">
+                  {carouselImages.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveSlide(idx)}
+                      aria-label={`Ir para slide ${idx + 1}`}
+                      className={`h-2.5 w-2.5 rounded-full transition ${idx === normalizedActiveSlide ? "scale-110 bg-white" : "bg-white/45 hover:bg-white/70"}`}
+                    />
+                  ))}
+                </div>
+              </>
             ) : null}
           </div>
         </section>
