@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { getCurrentUser } from "@/lib/current-user";
 import { isAdminUser } from "@/lib/is-admin-user";
+import { getLandingAssetApiUrl, LANDING_ASSET_STORAGE_DIR } from "@/lib/landing-asset-storage";
 
 const ALLOWED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 const MAX_SIZE = 8 * 1024 * 1024;
@@ -33,11 +34,11 @@ export async function POST(request: Request) {
     const bytes = Buffer.from(await fileEntry.arrayBuffer());
     const extension = path.extname(fileEntry.name) || ".png";
     const fileName = `${Date.now()}-${randomUUID()}-${sanitize(path.basename(fileEntry.name, extension))}${extension}`;
-    const targetDir = path.join(process.cwd(), "public", "uploads", "landing");
+    const targetDir = LANDING_ASSET_STORAGE_DIR;
     await mkdir(targetDir, { recursive: true });
     await writeFile(path.join(targetDir, fileName), bytes);
 
-    return NextResponse.json({ ok: true, url: `/uploads/landing/${fileName}` });
+    return NextResponse.json({ ok: true, url: getLandingAssetApiUrl(fileName) });
   } catch {
     return NextResponse.json({ ok: false, error: "Falha ao salvar asset da landing." }, { status: 500 });
   }

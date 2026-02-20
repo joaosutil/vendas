@@ -157,6 +157,20 @@ function hasGradientBackground(value: string) {
   return /gradient\(/i.test(value);
 }
 
+function normalizeLandingAssetUrl(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  const apiPrefix = "/api/landing/assets/";
+  const legacyPrefix = "/uploads/landing/";
+  if (trimmed.startsWith(apiPrefix)) return trimmed;
+  if (!trimmed.startsWith(legacyPrefix)) return trimmed;
+
+  const tail = trimmed.slice(legacyPrefix.length);
+  const [fileName, query = ""] = tail.split("?");
+  if (!fileName) return trimmed;
+  return `${apiPrefix}${fileName}${query ? `?${query}` : ""}`;
+}
+
 export function ProductLandingPage(props: ProductLandingPageProps) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [canvasSlides, setCanvasSlides] = useState<Record<string, number>>({});
@@ -167,8 +181,12 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
       ? "linear-gradient(145deg, rgba(15, 23, 42, 0.86), rgba(17, 24, 39, 0.84), rgba(15, 23, 42, 0.9))"
       : "rgba(255,255,255,0.82)";
   const sectionTitleClass = "text-3xl font-black md:text-4xl";
+  const heroImageUrl = useMemo(() => normalizeLandingAssetUrl(props.heroImageUrl), [props.heroImageUrl]);
   const carouselImages = useMemo(
-    () => props.carouselImages.filter((image) => image.trim().length > 0),
+    () =>
+      props.carouselImages
+        .map((image) => normalizeLandingAssetUrl(image))
+        .filter((image) => image.trim().length > 0),
     [props.carouselImages],
   );
 
@@ -211,6 +229,8 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
         .map((block) => ({
           ...defaultBlockVisual,
           ...block,
+          imageUrl: normalizeLandingAssetUrl(block.imageUrl ?? ""),
+          items: Array.isArray(block.items) ? block.items.map((item) => normalizeLandingAssetUrl(item)) : [],
         })),
     [defaultBlockVisual, props.blocks],
   );
@@ -662,7 +682,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
               </div>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={props.heroImageUrl} alt={props.title} className="h-auto w-full rounded-xl border border-white/25 object-cover shadow-lg" />
+              <img src={heroImageUrl} alt={props.title} className="h-auto w-full rounded-xl border border-white/25 object-cover shadow-lg" />
             )}
           </Card>
         </div>
@@ -735,7 +755,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                 </div>
                 {section.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={section.imageUrl} alt={section.title} className="mb-3 h-44 w-full rounded-lg object-cover" />
+                  <img src={normalizeLandingAssetUrl(section.imageUrl)} alt={section.title} className="mb-3 h-44 w-full rounded-lg object-cover" />
                 ) : null}
                 <p className="mt-2 text-sm opacity-90">{section.text}</p>
               </Card>
