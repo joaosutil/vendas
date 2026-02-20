@@ -11,7 +11,16 @@ type LandingCanvasAnimation =
   | "slide-right"
   | "zoom"
   | "flip"
-  | "pop";
+  | "pop"
+  | "blur-in"
+  | "rotate-in"
+  | "float-in";
+
+type LandingCanvasTexture = "none" | "grid" | "dots" | "diagonal" | "noise";
+type LandingCanvasWidth = "full" | "wide" | "normal" | "narrow";
+type LandingCanvasShadow = "none" | "soft" | "medium" | "hard";
+type LandingCanvasAlign = "left" | "center" | "right";
+type LandingCanvasMediaFit = "cover" | "contain";
 
 type ProductLandingPageProps = {
   title: string;
@@ -43,6 +52,23 @@ type ProductLandingPageProps = {
     backgroundColor: string;
     textColor: string;
     animation: LandingCanvasAnimation;
+    animationDuration: number;
+    animationDelay: number;
+    texture: LandingCanvasTexture;
+    textureOpacity: number;
+    widthMode: LandingCanvasWidth;
+    paddingX: number;
+    paddingY: number;
+    radius: number;
+    shadow: LandingCanvasShadow;
+    textAlign: LandingCanvasAlign;
+    titleSize: number;
+    textSize: number;
+    mediaFit: LandingCanvasMediaFit;
+    mediaHeightDesktop: number;
+    mediaHeightMobile: number;
+    carouselAutoplay: boolean;
+    carouselIntervalMs: number;
   }>;
   primaryColor: string;
   secondaryColor: string;
@@ -86,6 +112,39 @@ function Card({
   );
 }
 
+function shadowForLevel(level: LandingCanvasShadow) {
+  if (level === "none") return "none";
+  if (level === "hard") return "0 24px 60px rgba(2, 6, 23, 0.35)";
+  if (level === "medium") return "0 18px 40px rgba(2, 6, 23, 0.28)";
+  return "0 12px 30px rgba(2, 6, 23, 0.2)";
+}
+
+function maxWidthForMode(mode: LandingCanvasWidth) {
+  if (mode === "full") return "100%";
+  if (mode === "wide") return "min(1240px, 100%)";
+  if (mode === "narrow") return "min(760px, 100%)";
+  return "min(980px, 100%)";
+}
+
+function textureLayer(texture: LandingCanvasTexture, opacity: number, themeMode: "light" | "dark") {
+  const alpha = Math.max(0, Math.min(opacity, 100)) / 100;
+  const color = themeMode === "dark" ? `rgba(226,232,240,${alpha * 0.5})` : `rgba(15,23,42,${alpha * 0.35})`;
+
+  if (texture === "grid") {
+    return `linear-gradient(${color} 1px, transparent 1px), linear-gradient(90deg, ${color} 1px, transparent 1px)`;
+  }
+  if (texture === "dots") {
+    return `radial-gradient(${color} 1px, transparent 1px)`;
+  }
+  if (texture === "diagonal") {
+    return `repeating-linear-gradient(135deg, ${color}, ${color} 2px, transparent 2px, transparent 12px)`;
+  }
+  if (texture === "noise") {
+    return `repeating-radial-gradient(circle at 0 0, ${color}, transparent 2px)`;
+  }
+  return "";
+}
+
 export function ProductLandingPage(props: ProductLandingPageProps) {
   const [activeSlide, setActiveSlide] = useState(0);
   const [canvasSlides, setCanvasSlides] = useState<Record<string, number>>({});
@@ -101,34 +160,69 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
     [props.carouselImages],
   );
 
+  const defaultBlockVisual = useMemo(
+    () => ({
+      animationDuration: 0.45,
+      animationDelay: 0,
+      texture: "none" as LandingCanvasTexture,
+      textureOpacity: 16,
+      widthMode: "normal" as LandingCanvasWidth,
+      paddingX: 24,
+      paddingY: 24,
+      radius: 24,
+      shadow: "soft" as LandingCanvasShadow,
+      textAlign: "left" as LandingCanvasAlign,
+      titleSize: 44,
+      textSize: 16,
+      mediaFit: "cover" as LandingCanvasMediaFit,
+      mediaHeightDesktop: 420,
+      mediaHeightMobile: 240,
+      carouselAutoplay: true,
+      carouselIntervalMs: 4200,
+    }),
+    [],
+  );
+
   useEffect(() => {
+    if (props.editorMode) return;
     if (carouselImages.length <= 1) return;
     const timer = window.setInterval(() => {
       setActiveSlide((prev) => (prev + 1) % carouselImages.length);
     }, 4500);
     return () => window.clearInterval(timer);
-  }, [carouselImages.length]);
+  }, [carouselImages.length, props.editorMode]);
 
   const canvasBlocks = useMemo(
-    () => (props.blocks ?? []).filter((block) => block && block.type),
-    [props.blocks],
+    () =>
+      (props.blocks ?? [])
+        .filter((block) => block && block.type)
+        .map((block) => ({
+          ...defaultBlockVisual,
+          ...block,
+        })),
+    [defaultBlockVisual, props.blocks],
   );
 
   useEffect(() => {
-    const carousels = canvasBlocks.filter((block) => block.type === "carousel" && block.items.length > 1);
-    if (carousels.length === 0) return;
-    const timer = window.setInterval(() => {
-      setCanvasSlides((prev) => {
-        const next = { ...prev };
-        carousels.forEach((block) => {
-          const current = prev[block.id] ?? 0;
-          next[block.id] = (current + 1) % block.items.length;
-        });
-        return next;
-      });
-    }, 4200);
-    return () => window.clearInterval(timer);
-  }, [canvasBlocks]);
+    if (props.editorMode) return;
+    const carouselBlocks = canvasBlocks.filter(
+      (block) => block.type === "carousel" && block.items.length > 1 && block.carouselAutoplay,
+    );
+    if (carouselBlocks.length === 0) return;
+
+    const timers = carouselBlocks.map((block) =>
+      window.setInterval(() => {
+        setCanvasSlides((prev) => ({
+          ...prev,
+          [block.id]: ((prev[block.id] ?? 0) + 1) % block.items.length,
+        }));
+      }, Math.max(1500, block.carouselIntervalMs || 4200)),
+    );
+
+    return () => {
+      timers.forEach((timer) => window.clearInterval(timer));
+    };
+  }, [canvasBlocks, props.editorMode]);
 
   const hasCanvasBlocks = canvasBlocks.length > 0;
   const normalizedActiveSlide = carouselImages.length > 0 ? activeSlide % carouselImages.length : 0;
@@ -139,9 +233,14 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
     event.stopPropagation();
   }
 
-  function animationFor(blockAnimation: LandingCanvasAnimation, index: number) {
-    if (!props.animationsEnabled || blockAnimation === "none") return {};
-    const transition = { duration: 0.45, delay: index * 0.05 };
+  function animationFor(
+    blockAnimation: LandingCanvasAnimation,
+    duration: number,
+    delay: number,
+    index: number,
+  ) {
+    if (props.editorMode || !props.animationsEnabled || blockAnimation === "none") return {};
+    const transition = { duration: Math.max(0.2, duration || 0.45), delay: Math.max(0, delay || index * 0.05) };
     if (blockAnimation === "zoom") {
       return {
         initial: { opacity: 0, scale: 0.96 },
@@ -181,7 +280,28 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
       return {
         initial: { opacity: 0, scale: 0.88 },
         whileInView: { opacity: 1, scale: [1.02, 1] },
-        transition: { duration: 0.55, delay: index * 0.05 },
+        transition: { duration: Math.max(0.2, duration || 0.55), delay: Math.max(0, delay || index * 0.05) },
+      };
+    }
+    if (blockAnimation === "blur-in") {
+      return {
+        initial: { opacity: 0, filter: "blur(10px)" },
+        whileInView: { opacity: 1, filter: "blur(0px)" },
+        transition,
+      };
+    }
+    if (blockAnimation === "rotate-in") {
+      return {
+        initial: { opacity: 0, rotate: -3, y: 18 },
+        whileInView: { opacity: 1, rotate: 0, y: 0 },
+        transition,
+      };
+    }
+    if (blockAnimation === "float-in") {
+      return {
+        initial: { opacity: 0, y: 40 },
+        whileInView: { opacity: 1, y: [0, -4, 0] },
+        transition: { duration: Math.max(0.2, duration || 0.75), delay: Math.max(0, delay || index * 0.05) },
       };
     }
     return {
@@ -208,13 +328,15 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
       }
     >
       {hasCanvasBlocks ? (
-        <section className="mx-auto max-w-6xl space-y-4 px-4 py-10 md:space-y-5 md:py-14">
+        <section className="mx-auto w-full max-w-[1400px] space-y-4 px-4 py-10 md:space-y-5 md:py-14">
           {canvasBlocks.map((block, index) => (
             <motion.article
               key={block.id}
-              viewport={{ once: true, amount: 0.2 }}
-              {...animationFor(block.animation, index)}
-              className={`group rounded-3xl border p-4 shadow-xl backdrop-blur transition hover:translate-y-[-1px] md:p-6 ${
+              viewport={props.editorMode ? undefined : { once: true, amount: 0.2 }}
+              {...animationFor(block.animation, block.animationDuration, block.animationDelay, index)}
+              className={`group rounded-3xl border p-4 shadow-xl backdrop-blur transition md:p-6 ${
+                props.editorMode ? "" : "hover:translate-y-[-1px]"
+              } ${
                 props.editorMode ? "cursor-pointer" : ""
               } ${
                 props.editorMode && props.selectedEditorBlockId === block.id
@@ -228,13 +350,29 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                 borderColor: props.themeMode === "dark" ? "rgba(148, 163, 184, 0.32)" : "rgba(255,255,255,0.3)",
                 background: block.backgroundColor || defaultCanvasBackground,
                 color: block.textColor || surfaceText,
+                maxWidth: maxWidthForMode(block.widthMode),
+                marginInline: "auto",
+                padding: `${block.paddingY}px ${block.paddingX}px`,
+                borderRadius: `${block.radius}px`,
+                textAlign: block.textAlign,
+                boxShadow: shadowForLevel(block.shadow),
+                backgroundImage:
+                  block.texture !== "none"
+                    ? `${textureLayer(block.texture, block.textureOpacity, props.themeMode)}, ${block.backgroundColor || defaultCanvasBackground}`
+                    : undefined,
+                backgroundSize: block.texture === "grid" ? "20px 20px, auto" : block.texture === "dots" ? "18px 18px, auto" : "auto",
               }}
             >
               {block.type === "hero" ? (
                 <div className="grid gap-6 md:grid-cols-2 md:items-center">
                   <div>
-                    <h1 className="text-3xl leading-tight font-black md:text-5xl">{block.title || props.title}</h1>
-                    {block.text ? <p className="mt-3 text-sm opacity-95 md:text-base">{block.text}</p> : null}
+                    <h1
+                      className="leading-tight font-black"
+                      style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.62)}px, 4vw, ${block.titleSize}px)` }}
+                    >
+                      {block.title || props.title}
+                    </h1>
+                    {block.text ? <p className="mt-3 opacity-95" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.7vw, ${block.textSize}px)` }}>{block.text}</p> : null}
                     {block.buttonLabel && block.buttonUrl ? (
                       <a
                         href={block.buttonUrl}
@@ -250,13 +388,19 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                     {block.videoUrl ? (
                       <iframe
                         src={block.videoUrl}
-                        className={`h-64 w-full rounded-xl border border-white/25 md:h-80 ${props.editorMode ? "pointer-events-none" : ""}`}
+                        className={`w-full rounded-xl border border-white/25 ${props.editorMode ? "pointer-events-none" : ""}`}
+                        style={{ height: `clamp(${block.mediaHeightMobile}px, 42vw, ${block.mediaHeightDesktop}px)` }}
                         title={block.title || props.title}
                         allowFullScreen
                       />
                     ) : block.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl border border-white/20 object-cover" />
+                      <img
+                        src={block.imageUrl}
+                        alt={block.title || props.title}
+                        className="w-full rounded-xl border border-white/20"
+                        style={{ height: `clamp(${block.mediaHeightMobile}px, 42vw, ${block.mediaHeightDesktop}px)`, objectFit: block.mediaFit }}
+                      />
                     ) : null}
                   </div>
                 </div>
@@ -264,41 +408,47 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
 
               {block.type === "text" ? (
                 <>
-                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
-                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                  {block.title ? <h2 className="font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
+                  {block.text ? <p className="mt-2" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.6vw, ${block.textSize}px)` }}>{block.text}</p> : null}
                 </>
               ) : null}
 
               {block.type === "image" ? (
                 <>
-                  {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.title ? <h2 className="mb-3 font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
                   {block.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={block.imageUrl} alt={block.title || props.title} className="h-auto w-full rounded-xl object-cover" />
+                    <img
+                      src={block.imageUrl}
+                      alt={block.title || props.title}
+                      className="w-full rounded-xl"
+                      style={{ height: `clamp(${block.mediaHeightMobile}px, 42vw, ${block.mediaHeightDesktop}px)`, objectFit: block.mediaFit }}
+                    />
                   ) : null}
-                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                  {block.text ? <p className="mt-2" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.6vw, ${block.textSize}px)` }}>{block.text}</p> : null}
                 </>
               ) : null}
 
               {block.type === "video" ? (
                 <>
-                  {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.title ? <h2 className="mb-3 font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
                   {block.videoUrl ? (
                     <iframe
                       src={block.videoUrl}
-                      className={`h-64 w-full rounded-xl border border-white/25 md:h-80 ${props.editorMode ? "pointer-events-none" : ""}`}
+                      className={`w-full rounded-xl border border-white/25 ${props.editorMode ? "pointer-events-none" : ""}`}
+                      style={{ height: `clamp(${block.mediaHeightMobile}px, 42vw, ${block.mediaHeightDesktop}px)` }}
                       title={block.title || props.title}
                       allowFullScreen
                     />
                   ) : null}
-                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                  {block.text ? <p className="mt-2" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.6vw, ${block.textSize}px)` }}>{block.text}</p> : null}
                 </>
               ) : null}
 
               {block.type === "button" ? (
                 <div className="text-center">
-                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
-                  {block.text ? <p className="mt-2 text-sm md:text-base">{block.text}</p> : null}
+                  {block.title ? <h2 className="font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
+                  {block.text ? <p className="mt-2" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.6vw, ${block.textSize}px)` }}>{block.text}</p> : null}
                   <a
                     href={block.buttonUrl || props.ctaUrl}
                     onClick={stopNavigationInEditor}
@@ -312,10 +462,10 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
 
               {block.type === "benefits" ? (
                 <>
-                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.title ? <h2 className="font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
                   <ul className="mt-3 space-y-2">
                     {block.items.map((item, idx) => (
-                      <li key={`${block.id}-${idx}`} className="rounded-lg border border-white/20 bg-white/8 px-3 py-2">✅ {item}</li>
+                      <li key={`${block.id}-${idx}`} className="rounded-lg border border-white/20 bg-white/8 px-3 py-2" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.5vw, ${block.textSize}px)` }}>✅ {item}</li>
                     ))}
                   </ul>
                 </>
@@ -323,17 +473,17 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
 
               {block.type === "faq" ? (
                 <details className="rounded-xl border border-white/25 bg-white/8 p-3 open:bg-white/12">
-                  <summary className="cursor-pointer list-none text-2xl font-black md:text-3xl">
+                  <summary className="cursor-pointer list-none font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>
                     {block.title || "Pergunta frequente"}
                   </summary>
-                  <p className="mt-2 text-sm md:text-base">{block.text}</p>
+                  <p className="mt-2" style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.6vw, ${block.textSize}px)` }}>{block.text}</p>
                 </details>
               ) : null}
 
               {block.type === "input" ? (
                 <div className="space-y-3">
-                  {block.title ? <h2 className="text-2xl font-black md:text-3xl">{block.title}</h2> : null}
-                  {block.text ? <p className="text-sm md:text-base">{block.text}</p> : null}
+                  {block.title ? <h2 className="font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
+                  {block.text ? <p style={{ fontSize: `clamp(${Math.round(block.textSize * 0.9)}px, 1.6vw, ${block.textSize}px)` }}>{block.text}</p> : null}
                   <div className="flex flex-wrap gap-2">
                     <input
                       placeholder={block.placeholder || "Digite aqui"}
@@ -353,7 +503,7 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
 
               {block.type === "carousel" ? (
                 <div>
-                  {block.title ? <h2 className="mb-3 text-2xl font-black md:text-3xl">{block.title}</h2> : null}
+                  {block.title ? <h2 className="mb-3 font-black" style={{ fontSize: `clamp(${Math.round(block.titleSize * 0.54)}px, 3vw, ${Math.round(block.titleSize * 0.76)}px)` }}>{block.title}</h2> : null}
                   {block.items.length > 0 ? (
                     <div className="relative overflow-hidden rounded-2xl border border-white/30 bg-black/20 p-2">
                       <motion.div
@@ -364,7 +514,12 @@ export function ProductLandingPage(props: ProductLandingPageProps) {
                         {block.items.map((src, idx) => (
                           <div key={`${block.id}-item-${idx}`} className="w-full shrink-0 px-1">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={src} alt={`Slide ${idx + 1}`} className="h-[250px] w-full rounded-xl object-cover md:h-[420px]" />
+                            <img
+                              src={src}
+                              alt={`Slide ${idx + 1}`}
+                              className="w-full rounded-xl"
+                              style={{ height: `clamp(${block.mediaHeightMobile}px, 42vw, ${block.mediaHeightDesktop}px)`, objectFit: block.mediaFit }}
+                            />
                           </div>
                         ))}
                       </motion.div>

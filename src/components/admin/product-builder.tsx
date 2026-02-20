@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProductLandingPage } from "@/components/landing/product-landing-page";
 
@@ -12,7 +12,16 @@ type LandingCanvasAnimation =
   | "slide-right"
   | "zoom"
   | "flip"
-  | "pop";
+  | "pop"
+  | "blur-in"
+  | "rotate-in"
+  | "float-in";
+
+type LandingCanvasTexture = "none" | "grid" | "dots" | "diagonal" | "noise";
+type LandingCanvasWidth = "full" | "wide" | "normal" | "narrow";
+type LandingCanvasShadow = "none" | "soft" | "medium" | "hard";
+type LandingCanvasAlign = "left" | "center" | "right";
+type LandingCanvasMediaFit = "cover" | "contain";
 
 type LandingCanvasBlock = {
   id: string;
@@ -28,6 +37,23 @@ type LandingCanvasBlock = {
   backgroundColor: string;
   textColor: string;
   animation: LandingCanvasAnimation;
+  animationDuration: number;
+  animationDelay: number;
+  texture: LandingCanvasTexture;
+  textureOpacity: number;
+  widthMode: LandingCanvasWidth;
+  paddingX: number;
+  paddingY: number;
+  radius: number;
+  shadow: LandingCanvasShadow;
+  textAlign: LandingCanvasAlign;
+  titleSize: number;
+  textSize: number;
+  mediaFit: LandingCanvasMediaFit;
+  mediaHeightDesktop: number;
+  mediaHeightMobile: number;
+  carouselAutoplay: boolean;
+  carouselIntervalMs: number;
 };
 
 const BLOCK_TYPE_LABEL: Record<LandingCanvasBlock["type"], string> = {
@@ -63,6 +89,17 @@ const ANIMATION_OPTIONS: Array<{ value: LandingCanvasAnimation; label: string; h
   { value: "zoom", label: "Zoom", helper: "Aproxima com escala controlada." },
   { value: "flip", label: "Flip", helper: "Rotacao 3D para destaque premium." },
   { value: "pop", label: "Pop", helper: "Pequeno bounce no final da entrada." },
+  { value: "blur-in", label: "Blur in", helper: "Surge removendo desfoque." },
+  { value: "rotate-in", label: "Rotate in", helper: "Entrada com rotacao suave." },
+  { value: "float-in", label: "Float in", helper: "Leve flutuacao com fade." },
+];
+
+const TEXTURE_OPTIONS: Array<{ value: LandingCanvasTexture; label: string }> = [
+  { value: "none", label: "Sem textura" },
+  { value: "grid", label: "Grid" },
+  { value: "dots", label: "Dots" },
+  { value: "diagonal", label: "Diagonal" },
+  { value: "noise", label: "Noise" },
 ];
 
 const LANDING_HISTORY_LIMIT = 80;
@@ -94,6 +131,51 @@ function splitPairs(value: string) {
       return { left: left?.trim() ?? "", right: right?.trim() ?? "" };
     })
     .filter((item) => item.left && item.right);
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function defaultBlockStyle(): Pick<
+  LandingCanvasBlock,
+  | "animationDuration"
+  | "animationDelay"
+  | "texture"
+  | "textureOpacity"
+  | "widthMode"
+  | "paddingX"
+  | "paddingY"
+  | "radius"
+  | "shadow"
+  | "textAlign"
+  | "titleSize"
+  | "textSize"
+  | "mediaFit"
+  | "mediaHeightDesktop"
+  | "mediaHeightMobile"
+  | "carouselAutoplay"
+  | "carouselIntervalMs"
+> {
+  return {
+    animationDuration: 0.45,
+    animationDelay: 0,
+    texture: "none",
+    textureOpacity: 16,
+    widthMode: "normal",
+    paddingX: 24,
+    paddingY: 24,
+    radius: 24,
+    shadow: "soft",
+    textAlign: "left",
+    titleSize: 44,
+    textSize: 16,
+    mediaFit: "cover",
+    mediaHeightDesktop: 420,
+    mediaHeightMobile: 240,
+    carouselAutoplay: true,
+    carouselIntervalMs: 4200,
+  };
 }
 
 type ProductBuilderProps = {
@@ -218,6 +300,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         const type = validTypes.includes(maybeType as LandingCanvasBlock["type"])
           ? (maybeType as LandingCanvasBlock["type"])
           : "text";
+        const base = defaultBlockStyle();
         return {
           id: String(block.id ?? `canvas-${index}-${crypto.randomUUID()}`),
           type,
@@ -234,11 +317,48 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           backgroundColor: String(block.backgroundColor ?? ""),
           textColor: String(block.textColor ?? ""),
           animation: (
-            ["none", "fade", "slide-up", "slide-left", "slide-right", "zoom", "flip", "pop"].includes(
+            ["none", "fade", "slide-up", "slide-left", "slide-right", "zoom", "flip", "pop", "blur-in", "rotate-in", "float-in"].includes(
               String(block.animation),
             )
             ? String(block.animation)
             : "fade") as LandingCanvasBlock["animation"],
+          animationDuration: clampNumber(Number(block.animationDuration ?? base.animationDuration), 0.2, 2),
+          animationDelay: clampNumber(Number(block.animationDelay ?? base.animationDelay), 0, 0.8),
+          texture: (
+            ["none", "grid", "dots", "diagonal", "noise"].includes(String(block.texture))
+              ? String(block.texture)
+              : base.texture
+          ) as LandingCanvasBlock["texture"],
+          textureOpacity: clampNumber(Number(block.textureOpacity ?? base.textureOpacity), 0, 70),
+          widthMode: (
+            ["full", "wide", "normal", "narrow"].includes(String(block.widthMode))
+              ? String(block.widthMode)
+              : base.widthMode
+          ) as LandingCanvasBlock["widthMode"],
+          paddingX: clampNumber(Number(block.paddingX ?? base.paddingX), 8, 80),
+          paddingY: clampNumber(Number(block.paddingY ?? base.paddingY), 8, 96),
+          radius: clampNumber(Number(block.radius ?? base.radius), 0, 56),
+          shadow: (
+            ["none", "soft", "medium", "hard"].includes(String(block.shadow))
+              ? String(block.shadow)
+              : base.shadow
+          ) as LandingCanvasBlock["shadow"],
+          textAlign: (
+            ["left", "center", "right"].includes(String(block.textAlign))
+              ? String(block.textAlign)
+              : base.textAlign
+          ) as LandingCanvasBlock["textAlign"],
+          titleSize: clampNumber(Number(block.titleSize ?? base.titleSize), 20, 88),
+          textSize: clampNumber(Number(block.textSize ?? base.textSize), 12, 30),
+          mediaFit: (
+            ["cover", "contain"].includes(String(block.mediaFit))
+              ? String(block.mediaFit)
+              : base.mediaFit
+          ) as LandingCanvasBlock["mediaFit"],
+          mediaHeightDesktop: clampNumber(Number(block.mediaHeightDesktop ?? base.mediaHeightDesktop), 160, 900),
+          mediaHeightMobile: clampNumber(Number(block.mediaHeightMobile ?? base.mediaHeightMobile), 120, 640),
+          carouselAutoplay: Boolean(block.carouselAutoplay ?? base.carouselAutoplay),
+          carouselIntervalMs: clampNumber(Number(block.carouselIntervalMs ?? base.carouselIntervalMs), 1500, 10000),
         } satisfies LandingCanvasBlock;
       })
       .filter((block) => block.title || block.text || block.imageUrl || block.videoUrl || block.buttonLabel || block.items.length > 0);
@@ -260,6 +380,8 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         backgroundColor: landingSecondaryColor,
         textColor: "",
         animation: "fade",
+        ...defaultBlockStyle(),
+        widthMode: "wide",
       },
       {
         id: `cta-${crypto.randomUUID()}`,
@@ -275,6 +397,9 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         backgroundColor: landingPrimaryColor,
         textColor: "#ffffff",
         animation: "zoom",
+        ...defaultBlockStyle(),
+        widthMode: "narrow",
+        textAlign: "center",
       },
       {
         id: `benefits-${crypto.randomUUID()}`,
@@ -290,6 +415,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         backgroundColor: "",
         textColor: "",
         animation: "fade",
+        ...defaultBlockStyle(),
       },
       {
         id: `carousel-${crypto.randomUUID()}`,
@@ -305,6 +431,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         backgroundColor: "",
         textColor: "",
         animation: "slide-up",
+        ...defaultBlockStyle(),
       },
     ];
   });
@@ -581,6 +708,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
     landingThemeMode,
     landingAnimationsEnabled,
   ]);
+  const deferredStagePreviewData = useDeferredValue(stagePreviewData);
 
   useEffect(() => {
     const snapshot = cloneLandingBlocks(landingBlocks);
@@ -701,9 +829,45 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
       | "placeholder"
       | "backgroundColor"
       | "textColor"
-      | "animation",
+      | "animation"
+      | "texture"
+      | "widthMode"
+      | "shadow"
+      | "textAlign"
+      | "mediaFit",
     value: string,
   ) {
+    setLandingBlocks((prev) => {
+      const next = prev.map((block) => (block.id === blockId ? { ...block, [key]: value } : block));
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function updateBlockNumber(
+    blockId: string,
+    key:
+      | "animationDuration"
+      | "animationDelay"
+      | "textureOpacity"
+      | "paddingX"
+      | "paddingY"
+      | "radius"
+      | "titleSize"
+      | "textSize"
+      | "mediaHeightDesktop"
+      | "mediaHeightMobile"
+      | "carouselIntervalMs",
+    value: number,
+  ) {
+    setLandingBlocks((prev) => {
+      const next = prev.map((block) => (block.id === blockId ? { ...block, [key]: value } : block));
+      syncSectionsFromBlocks(next);
+      return next;
+    });
+  }
+
+  function updateBlockBoolean(blockId: string, key: "carouselAutoplay", value: boolean) {
     setLandingBlocks((prev) => {
       const next = prev.map((block) => (block.id === blockId ? { ...block, [key]: value } : block));
       syncSectionsFromBlocks(next);
@@ -760,6 +924,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
           backgroundColor: "",
           textColor: "",
           animation: "fade",
+          ...defaultBlockStyle(),
         },
       ];
       setSelectedBlockId(next[next.length - 1]?.id ?? null);
@@ -859,6 +1024,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
         backgroundColor: "",
         textColor: "",
         animation: "fade",
+        ...defaultBlockStyle(),
       };
     });
     setLandingBlocks(blocks);
@@ -1033,6 +1199,23 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
               backgroundColor: block.backgroundColor.trim(),
               textColor: block.textColor.trim(),
               animation: block.animation,
+              animationDuration: block.animationDuration,
+              animationDelay: block.animationDelay,
+              texture: block.texture,
+              textureOpacity: block.textureOpacity,
+              widthMode: block.widthMode,
+              paddingX: block.paddingX,
+              paddingY: block.paddingY,
+              radius: block.radius,
+              shadow: block.shadow,
+              textAlign: block.textAlign,
+              titleSize: block.titleSize,
+              textSize: block.textSize,
+              mediaFit: block.mediaFit,
+              mediaHeightDesktop: block.mediaHeightDesktop,
+              mediaHeightMobile: block.mediaHeightMobile,
+              carouselAutoplay: block.carouselAutoplay,
+              carouselIntervalMs: block.carouselIntervalMs,
             })),
           },
         }),
@@ -1453,27 +1636,27 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
             >
               <div className={stageViewport === "mobile" ? "mx-auto w-full max-w-[430px]" : "w-full"}>
                 <ProductLandingPage
-                  title={stagePreviewData.title}
-                  badge={stagePreviewData.badge}
-                  headline={stagePreviewData.headline}
-                  subheadline={stagePreviewData.subheadline}
-                  description={stagePreviewData.description}
-                  priceLabel={stagePreviewData.priceLabel}
-                  ctaLabel={stagePreviewData.ctaLabel}
-                  ctaUrl={stagePreviewData.ctaUrl}
-                  heroImageUrl={stagePreviewData.heroImageUrl}
-                  heroVideoUrl={stagePreviewData.heroVideoUrl}
-                  bullets={stagePreviewData.bullets}
-                  carouselImages={stagePreviewData.carouselImages}
-                  testimonials={stagePreviewData.testimonials}
-                  faq={stagePreviewData.faq}
-                  contentSections={stagePreviewData.contentSections}
-                  blocks={stagePreviewData.blocks}
-                  primaryColor={stagePreviewData.primaryColor}
-                  secondaryColor={stagePreviewData.secondaryColor}
-                  accentColor={stagePreviewData.accentColor}
-                  themeMode={stagePreviewData.themeMode}
-                  animationsEnabled={stagePreviewData.animationsEnabled}
+                  title={deferredStagePreviewData.title}
+                  badge={deferredStagePreviewData.badge}
+                  headline={deferredStagePreviewData.headline}
+                  subheadline={deferredStagePreviewData.subheadline}
+                  description={deferredStagePreviewData.description}
+                  priceLabel={deferredStagePreviewData.priceLabel}
+                  ctaLabel={deferredStagePreviewData.ctaLabel}
+                  ctaUrl={deferredStagePreviewData.ctaUrl}
+                  heroImageUrl={deferredStagePreviewData.heroImageUrl}
+                  heroVideoUrl={deferredStagePreviewData.heroVideoUrl}
+                  bullets={deferredStagePreviewData.bullets}
+                  carouselImages={deferredStagePreviewData.carouselImages}
+                  testimonials={deferredStagePreviewData.testimonials}
+                  faq={deferredStagePreviewData.faq}
+                  contentSections={deferredStagePreviewData.contentSections}
+                  blocks={deferredStagePreviewData.blocks}
+                  primaryColor={deferredStagePreviewData.primaryColor}
+                  secondaryColor={deferredStagePreviewData.secondaryColor}
+                  accentColor={deferredStagePreviewData.accentColor}
+                  themeMode={deferredStagePreviewData.themeMode}
+                  animationsEnabled={deferredStagePreviewData.animationsEnabled}
                   editorMode
                   selectedEditorBlockId={selectedBlock?.id ?? null}
                   onEditorBlockSelect={(blockId) => setSelectedBlockId(blockId)}
@@ -1482,7 +1665,7 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
             </div>
           </div>
           <aside
-            className={`rounded-2xl border p-3 ${
+            className={`rounded-2xl border p-3 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto ${
               builderIsDark ? "border-slate-600/60 bg-slate-950/70 text-slate-100" : "border-[var(--dourado)]/35 bg-white"
             }`}
           >
@@ -1496,86 +1679,184 @@ export function ProductBuilder({ product }: ProductBuilderProps) {
                   <button type="button" onClick={() => removeBlock(selectedBlock.id)} className="rounded-lg border border-red-300 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700">Excluir</button>
                 </div>
 
-                <select
-                  value={selectedBlock.type}
-                  onChange={(event) => updateBlock(selectedBlock.id, "type", event.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}
-                >
-                  {BLOCK_LIBRARY.map((item) => (
-                    <option key={item.type} value={item.type}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-
-                <input value={selectedBlock.title} onChange={(event) => updateBlock(selectedBlock.id, "title", event.target.value)} placeholder="Titulo" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-                <textarea value={selectedBlock.text} onChange={(event) => updateBlock(selectedBlock.id, "text", event.target.value)} placeholder="Texto" rows={3} className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-                <input value={selectedBlock.imageUrl} onChange={(event) => updateBlockImage(selectedBlock.id, event.target.value)} placeholder="URL da imagem" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-
-                <label className={`inline-flex w-full cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${builderIsDark ? "border-slate-500/65 bg-slate-900/70 text-slate-100" : "border-[var(--ink)]/25 bg-white text-[var(--ink)]"}`}>
-                  {uploadingBlockId === selectedBlock.id ? "Enviando imagem..." : "Upload imagem"}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    className="hidden"
-                    disabled={uploadingBlockId === selectedBlock.id}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      void uploadLandingAsset(selectedBlock.id, file);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-
-                <input value={selectedBlock.videoUrl} onChange={(event) => updateBlock(selectedBlock.id, "videoUrl", event.target.value)} placeholder="URL do video (embed)" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-                <input value={selectedBlock.buttonLabel} onChange={(event) => updateBlock(selectedBlock.id, "buttonLabel", event.target.value)} placeholder="Texto do botao" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-                <input value={selectedBlock.buttonUrl} onChange={(event) => updateBlock(selectedBlock.id, "buttonUrl", event.target.value)} placeholder="URL do botao" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-                <input value={selectedBlock.placeholder} onChange={(event) => updateBlock(selectedBlock.id, "placeholder", event.target.value)} placeholder="Placeholder do input" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-
-                <textarea
-                  value={selectedBlock.items.join("\n")}
-                  onChange={(event) => updateBlockItems(selectedBlock.id, event.target.value)}
-                  rows={4}
-                  placeholder="Itens (1 por linha): beneficios, FAQ ou imagens"
-                  className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}
-                />
-
-                <label className={`inline-flex w-full cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${builderIsDark ? "border-slate-500/65 bg-slate-900/70 text-slate-100" : "border-[var(--ink)]/25 bg-white text-[var(--ink)]"}`}>
-                  {uploadingCarousel ? "Enviando para itens..." : "Upload para itens/carrossel"}
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    className="hidden"
-                    disabled={uploadingCarousel}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (!file) return;
-                      void uploadCarouselAsset(file);
-                      event.currentTarget.value = "";
-                    }}
-                  />
-                </label>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={selectedBlock.backgroundColor} onChange={(event) => updateBlock(selectedBlock.id, "backgroundColor", event.target.value)} placeholder="Cor de fundo" className={`rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
-                  <input value={selectedBlock.textColor} onChange={(event) => updateBlock(selectedBlock.id, "textColor", event.target.value)} placeholder="Cor de texto" className={`rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                <div className={`rounded-xl border p-2 ${builderIsDark ? "border-slate-600/65 bg-slate-900/45" : "border-[var(--dourado)]/35 bg-[var(--creme)]/45"}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide">Conteudo</p>
+                  <div className="mt-2 space-y-2">
+                    <select
+                      value={selectedBlock.type}
+                      onChange={(event) => updateBlock(selectedBlock.id, "type", event.target.value)}
+                      className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}
+                    >
+                      {BLOCK_LIBRARY.map((item) => (
+                        <option key={item.type} value={item.type}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input value={selectedBlock.title} onChange={(event) => updateBlock(selectedBlock.id, "title", event.target.value)} placeholder="Titulo" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <textarea value={selectedBlock.text} onChange={(event) => updateBlock(selectedBlock.id, "text", event.target.value)} placeholder="Texto" rows={3} className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <input value={selectedBlock.imageUrl} onChange={(event) => updateBlockImage(selectedBlock.id, event.target.value)} placeholder="URL da imagem" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <label className={`inline-flex w-full cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${builderIsDark ? "border-slate-500/65 bg-slate-900/70 text-slate-100" : "border-[var(--ink)]/25 bg-white text-[var(--ink)]"}`}>
+                      {uploadingBlockId === selectedBlock.id ? "Enviando imagem..." : "Upload imagem"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        disabled={uploadingBlockId === selectedBlock.id}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          void uploadLandingAsset(selectedBlock.id, file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                    <input value={selectedBlock.videoUrl} onChange={(event) => updateBlock(selectedBlock.id, "videoUrl", event.target.value)} placeholder="URL do video (embed)" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <input value={selectedBlock.buttonLabel} onChange={(event) => updateBlock(selectedBlock.id, "buttonLabel", event.target.value)} placeholder="Texto do botao" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <input value={selectedBlock.buttonUrl} onChange={(event) => updateBlock(selectedBlock.id, "buttonUrl", event.target.value)} placeholder="URL do botao" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <input value={selectedBlock.placeholder} onChange={(event) => updateBlock(selectedBlock.id, "placeholder", event.target.value)} placeholder="Placeholder do input" className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <textarea
+                      value={selectedBlock.items.join("\n")}
+                      onChange={(event) => updateBlockItems(selectedBlock.id, event.target.value)}
+                      rows={4}
+                      placeholder="Itens (1 por linha): beneficios, FAQ ou imagens"
+                      className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}
+                    />
+                    <label className={`inline-flex w-full cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${builderIsDark ? "border-slate-500/65 bg-slate-900/70 text-slate-100" : "border-[var(--ink)]/25 bg-white text-[var(--ink)]"}`}>
+                      {uploadingCarousel ? "Enviando para itens..." : "Upload para itens/carrossel"}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        disabled={uploadingCarousel}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          void uploadCarouselAsset(file);
+                          event.currentTarget.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
 
-                <select
-                  value={selectedBlock.animation}
-                  onChange={(event) => updateBlock(selectedBlock.id, "animation", event.target.value)}
-                  className={`w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}
-                >
-                  {ANIMATION_OPTIONS.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-                <p className={`text-[11px] ${builderIsDark ? "text-slate-300/75" : "text-[var(--carvao)]/65"}`}>
-                  {ANIMATION_OPTIONS.find((item) => item.value === selectedBlock.animation)?.helper}
-                </p>
+                <div className={`rounded-xl border p-2 ${builderIsDark ? "border-slate-600/65 bg-slate-900/45" : "border-[var(--dourado)]/35 bg-[var(--creme)]/45"}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide">Layout e estilo</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <select value={selectedBlock.widthMode} onChange={(event) => updateBlock(selectedBlock.id, "widthMode", event.target.value)} className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}>
+                      <option value="full">Largura: full</option>
+                      <option value="wide">Largura: wide</option>
+                      <option value="normal">Largura: normal</option>
+                      <option value="narrow">Largura: narrow</option>
+                    </select>
+                    <select value={selectedBlock.textAlign} onChange={(event) => updateBlock(selectedBlock.id, "textAlign", event.target.value)} className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}>
+                      <option value="left">Texto: esquerda</option>
+                      <option value="center">Texto: centro</option>
+                      <option value="right">Texto: direita</option>
+                    </select>
+                    <select value={selectedBlock.shadow} onChange={(event) => updateBlock(selectedBlock.id, "shadow", event.target.value)} className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}>
+                      <option value="none">Sombra: nenhuma</option>
+                      <option value="soft">Sombra: suave</option>
+                      <option value="medium">Sombra: media</option>
+                      <option value="hard">Sombra: forte</option>
+                    </select>
+                    <select value={selectedBlock.texture} onChange={(event) => updateBlock(selectedBlock.id, "texture", event.target.value)} className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}>
+                      {TEXTURE_OPTIONS.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input value={selectedBlock.backgroundColor} onChange={(event) => updateBlock(selectedBlock.id, "backgroundColor", event.target.value)} placeholder="Cor de fundo" className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                    <input value={selectedBlock.textColor} onChange={(event) => updateBlock(selectedBlock.id, "textColor", event.target.value)} placeholder="Cor de texto" className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`} />
+                  </div>
+                  <div className="mt-2 space-y-2 text-[11px]">
+                    <label className="flex items-center justify-between gap-2">
+                      Padding X <span>{selectedBlock.paddingX}px</span>
+                    </label>
+                    <input type="range" min={8} max={80} value={selectedBlock.paddingX} onChange={(event) => updateBlockNumber(selectedBlock.id, "paddingX", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Padding Y <span>{selectedBlock.paddingY}px</span>
+                    </label>
+                    <input type="range" min={8} max={96} value={selectedBlock.paddingY} onChange={(event) => updateBlockNumber(selectedBlock.id, "paddingY", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Borda arredondada <span>{selectedBlock.radius}px</span>
+                    </label>
+                    <input type="range" min={0} max={56} value={selectedBlock.radius} onChange={(event) => updateBlockNumber(selectedBlock.id, "radius", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Intensidade textura <span>{selectedBlock.textureOpacity}%</span>
+                    </label>
+                    <input type="range" min={0} max={70} value={selectedBlock.textureOpacity} onChange={(event) => updateBlockNumber(selectedBlock.id, "textureOpacity", Number(event.target.value))} className="w-full accent-sky-500" />
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-2 ${builderIsDark ? "border-slate-600/65 bg-slate-900/45" : "border-[var(--dourado)]/35 bg-[var(--creme)]/45"}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide">Tipografia e midia</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <select value={selectedBlock.mediaFit} onChange={(event) => updateBlock(selectedBlock.id, "mediaFit", event.target.value)} className={`rounded-lg border px-2 py-1.5 text-xs ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}>
+                      <option value="cover">Imagem: cover</option>
+                      <option value="contain">Imagem: contain</option>
+                    </select>
+                    <label className="flex items-center gap-1 rounded-lg border px-2 py-1.5 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={selectedBlock.carouselAutoplay}
+                        onChange={(event) => updateBlockBoolean(selectedBlock.id, "carouselAutoplay", event.target.checked)}
+                      />
+                      Autoplay carrossel
+                    </label>
+                  </div>
+                  <div className="mt-2 space-y-2 text-[11px]">
+                    <label className="flex items-center justify-between gap-2">
+                      Titulo <span>{selectedBlock.titleSize}px</span>
+                    </label>
+                    <input type="range" min={20} max={88} value={selectedBlock.titleSize} onChange={(event) => updateBlockNumber(selectedBlock.id, "titleSize", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Texto <span>{selectedBlock.textSize}px</span>
+                    </label>
+                    <input type="range" min={12} max={30} value={selectedBlock.textSize} onChange={(event) => updateBlockNumber(selectedBlock.id, "textSize", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Midia desktop <span>{selectedBlock.mediaHeightDesktop}px</span>
+                    </label>
+                    <input type="range" min={160} max={900} value={selectedBlock.mediaHeightDesktop} onChange={(event) => updateBlockNumber(selectedBlock.id, "mediaHeightDesktop", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Midia mobile <span>{selectedBlock.mediaHeightMobile}px</span>
+                    </label>
+                    <input type="range" min={120} max={640} value={selectedBlock.mediaHeightMobile} onChange={(event) => updateBlockNumber(selectedBlock.id, "mediaHeightMobile", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Intervalo carrossel <span>{selectedBlock.carouselIntervalMs}ms</span>
+                    </label>
+                    <input type="range" min={1500} max={10000} step={100} value={selectedBlock.carouselIntervalMs} onChange={(event) => updateBlockNumber(selectedBlock.id, "carouselIntervalMs", Number(event.target.value))} className="w-full accent-sky-500" />
+                  </div>
+                </div>
+
+                <div className={`rounded-xl border p-2 ${builderIsDark ? "border-slate-600/65 bg-slate-900/45" : "border-[var(--dourado)]/35 bg-[var(--creme)]/45"}`}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide">Animacao</p>
+                  <select
+                    value={selectedBlock.animation}
+                    onChange={(event) => updateBlock(selectedBlock.id, "animation", event.target.value)}
+                    className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm ${builderIsDark ? "border-slate-500/60 bg-slate-900/70 text-slate-100" : "border-[var(--dourado)]/45 bg-white"}`}
+                  >
+                    {ANIMATION_OPTIONS.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className={`mt-1 text-[11px] ${builderIsDark ? "text-slate-300/75" : "text-[var(--carvao)]/65"}`}>
+                    {ANIMATION_OPTIONS.find((item) => item.value === selectedBlock.animation)?.helper}
+                  </p>
+                  <div className="mt-2 space-y-2 text-[11px]">
+                    <label className="flex items-center justify-between gap-2">
+                      Duracao <span>{selectedBlock.animationDuration.toFixed(2)}s</span>
+                    </label>
+                    <input type="range" min={0.2} max={2} step={0.05} value={selectedBlock.animationDuration} onChange={(event) => updateBlockNumber(selectedBlock.id, "animationDuration", Number(event.target.value))} className="w-full accent-sky-500" />
+                    <label className="flex items-center justify-between gap-2">
+                      Delay <span>{selectedBlock.animationDelay.toFixed(2)}s</span>
+                    </label>
+                    <input type="range" min={0} max={0.8} step={0.02} value={selectedBlock.animationDelay} onChange={(event) => updateBlockNumber(selectedBlock.id, "animationDelay", Number(event.target.value))} className="w-full accent-sky-500" />
+                  </div>
+                </div>
               </div>
             ) : (
               <p className="mt-2 text-xs text-[var(--carvao)]/70">Selecione um bloco para editar.</p>
